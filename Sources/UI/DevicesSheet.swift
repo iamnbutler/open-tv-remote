@@ -118,7 +118,7 @@ struct DevicesSheet: View {
         .onAppear { model.discovery.start() }
         .onDisappear { model.discovery.stop() }
         #if os(macOS)
-        .frame(minWidth: 420, minHeight: 520)
+        .frame(minWidth: 400, minHeight: 520)
         #endif
     }
 }

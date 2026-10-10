@@ -144,7 +144,7 @@ struct KeyboardSheet: View {
         #if os(iOS)
         .presentationDetents([.height(210)])
         #else
-        .frame(width: 420, height: 180)
+        .frame(width: 400, height: 180)
         #endif
     }
 
@@ -195,7 +195,7 @@ struct AppsSheet: View {
             .task { await model.refreshApps() }
         }
         #if os(macOS)
-        .frame(minWidth: 460, minHeight: 480)
+        .frame(minWidth: 360, idealWidth: 380, maxWidth: 400, minHeight: 480)
         #endif
     }
 }

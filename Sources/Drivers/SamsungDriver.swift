@@ -15,6 +15,7 @@ final class SamsungDriver: TVDriver {
     /// Keys pressed while (re)connecting, sent once the TV lets us in.
     private var pendingKeys: [String] = []
     private var appsContinuation: CheckedContinuation<[TVApp]?, Never>?
+    private var appsRequest = 0
 
     init(device: TVDevice) {
         self.device = device
@@ -35,6 +36,8 @@ final class SamsungDriver: TVDriver {
         socket?.close()
         socket = nil
         pendingKeys = []
+        appsContinuation?.resume(returning: nil)
+        appsContinuation = nil
         state = .idle
     }
 
@@ -148,11 +151,15 @@ final class SamsungDriver: TVDriver {
     func installedApps() async -> [TVApp]? {
         guard state == .connected, let socket else { return nil }
         appsContinuation?.resume(returning: nil)
+        appsRequest += 1
+        let request = appsRequest
         return await withCheckedContinuation { continuation in
             appsContinuation = continuation
             socket.send(json: ["method": "ms.channel.emit", "params": ["event": "ed.installedApp.get", "to": "host"]])
             Task {
                 try? await Task.sleep(for: .seconds(4))
+                // Only time out our own request, not a newer one that replaced it.
+                guard request == appsRequest else { return }
                 appsContinuation?.resume(returning: nil)
                 appsContinuation = nil
             }

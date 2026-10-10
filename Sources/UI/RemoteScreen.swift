@@ -28,7 +28,7 @@ struct RemoteScreen: View {
                 .padding(.top, 8)
                 .padding(.bottom, 20)
                 .frame(maxWidth: 440)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: geo.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)
         }

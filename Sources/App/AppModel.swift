@@ -24,6 +24,23 @@ final class AppModel: TVDriverDelegate {
     var current: TVDevice? { devices.first { $0.id == currentID } }
 
     init() {
+        #if DEBUG
+        if DemoMode.isEnabled {
+            devices = DemoMode.devices
+            currentID = DemoMode.devices[0].id
+            let driver = DemoDriver(device: DemoMode.devices[0])
+            driver.delegate = self
+            self.driver = driver
+            state = .connected
+            switch DemoMode.sheet {
+            case "apps": showingApps = true
+            case "devices": showingDevices = true
+            case "keyboard": showingKeyboard = true
+            default: break
+            }
+            return
+        }
+        #endif
         if let current {
             activate(current)
         }
