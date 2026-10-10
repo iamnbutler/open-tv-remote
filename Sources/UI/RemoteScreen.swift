@@ -329,12 +329,22 @@ struct AppTile: View {
             ZStack {
                 if let style {
                     shape.fill(style.background)
-                    Text(style.name)
-                        .font(.system(size: 15, weight: .heavy, design: .rounded))
-                        .foregroundStyle(style.foreground)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .padding(.horizontal, 8)
+                    if let iconName = style.iconName {
+                        Image(iconName)
+                            .renderingMode(.original)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 88, maxHeight: 36)
+                            .padding(10)
+                            .accessibilityHidden(true)
+                    } else {
+                        Text(style.name)
+                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .foregroundStyle(style.foreground)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 8)
+                    }
                 } else if let icon = app.iconURL {
                     shape.fill(Theme.keyTop)
                     AsyncImage(url: icon) { image in
@@ -354,6 +364,7 @@ struct AppTile: View {
                 }
             }
             .overlay(shape.strokeBorder(.white.opacity(0.08), lineWidth: 1))
+            .compositingGroup()
             .shadow(color: .black.opacity(0.45), radius: 6, y: 3)
         }
         .buttonStyle(PressScaleStyle())
