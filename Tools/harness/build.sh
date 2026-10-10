@@ -3,6 +3,7 @@
 # "Always Allow" survives rebuilds (unsigned builds look like a new app each time).
 set -e
 cd "$(dirname "$0")/../.."
+mkdir -p build
 swiftc -swift-version 5 -O -o build/harness Tools/harness/main.swift \
   Sources/Core/RemoteKey.swift Sources/Core/TVDevice.swift Sources/Core/TVDriver.swift \
   Sources/Net/*.swift Sources/Drivers/AndroidTVDriver.swift
