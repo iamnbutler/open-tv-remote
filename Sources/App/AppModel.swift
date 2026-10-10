@@ -14,8 +14,10 @@ final class AppModel: TVDriverDelegate {
     var showingDevices = false
     var showingKeyboard = false
     var showingApps = false
+    var showingSettings = false
 
     let discovery = Discovery()
+    let jellyfin = JellyfinStore()
 
     @ObservationIgnored private var driver: TVDriver?
     @ObservationIgnored private var relocateTask: Task<Void, Never>?
@@ -36,6 +38,7 @@ final class AppModel: TVDriverDelegate {
             case "apps": showingApps = true
             case "devices": showingDevices = true
             case "keyboard": showingKeyboard = true
+            case "settings": showingSettings = true
             default: break
             }
             return
@@ -172,7 +175,13 @@ final class AppModel: TVDriverDelegate {
 
     func sendText(_ text: String) { driver?.sendText(text) }
 
-    func launch(_ app: TVApp) { driver?.launch(app) }
+    /// Returns false when there's no paired TV to send it to.
+    @discardableResult
+    func launch(_ app: TVApp) -> Bool {
+        guard let driver, current?.hasCredentials == true else { return false }
+        driver.launch(app)
+        return true
+    }
 
     /// Shortcuts for the remote's app row: installed apps when the TV can list them, else the catalog.
     var shortcutApps: [(app: TVApp, style: CatalogApp?)] {
@@ -190,6 +199,25 @@ final class AppModel: TVDriverDelegate {
             return installedApps.map { ($0, CatalogApp.match(name: $0.name)) }
         }
         return CatalogApp.all.compactMap { c in c.tvApp(for: brand).map { ($0, Optional(c)) } }
+    }
+
+    // MARK: Watch page apps
+
+    /// App name → whether it's on the Watch page. Apps the user hasn't chosen for follow `shortcutApps`.
+    private var appChoices: [String: Bool] = UserDefaults.standard.dictionary(forKey: "apps.visible.v1") as? [String: Bool] ?? [:] {
+        didSet { UserDefaults.standard.set(appChoices, forKey: "apps.visible.v1") }
+    }
+
+    func isShown(_ app: TVApp) -> Bool {
+        appChoices[app.name.lowercased()] ?? shortcutApps.contains { $0.app.name == app.name }
+    }
+
+    func setShown(_ app: TVApp, _ shown: Bool) {
+        appChoices[app.name.lowercased()] = shown
+    }
+
+    var watchApps: [(app: TVApp, style: CatalogApp?)] {
+        allApps.filter { isShown($0.app) }
     }
 
     func refreshApps() async {

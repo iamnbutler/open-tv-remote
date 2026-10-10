@@ -11,8 +11,8 @@ struct RemoteScreen: View {
             // phone — a scroll that starts on a key would otherwise press it.
             let compact = geo.size.height < 760
             let spacing: CGFloat = compact ? 10 : 18
-            let fixed: CGFloat = 48 + 54 + 192 + 72 + spacing * 5 + 28
-            let padHeight = min(290, max(170, geo.size.height - fixed - 8))
+            let fixed: CGFloat = 48 + 54 + 192 + spacing * 4 + 28 + PageSwitcher.height
+            let padHeight = min(340, max(170, geo.size.height - fixed - 8))
             ScrollView {
                 VStack(spacing: spacing) {
                     TopBar()
@@ -22,7 +22,6 @@ struct RemoteScreen: View {
                         .frame(height: padHeight)
                         .padding(.vertical, 4)
                     controls
-                    AppRow()
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -308,36 +307,6 @@ private struct Rocker: View {
                 .background(Capsule().fill(Theme.background))
                 .overlay(Capsule().strokeBorder(.white.opacity(0.06), lineWidth: 1))
                 .allowsHitTesting(false)
-        }
-    }
-}
-
-private struct AppRow: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        if model.current != nil {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(model.shortcutApps.prefix(8), id: \.app.id) { entry in
-                        AppTile(app: entry.app, style: entry.style) { model.launch(entry.app) }
-                            .frame(width: 108, height: 56)
-                    }
-                    Button { model.showingApps = true } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: "square.grid.2x2.fill").font(.system(size: 16, weight: .semibold))
-                            Text("All apps").font(.system(size: 11, weight: .semibold, design: .rounded))
-                        }
-                        .foregroundStyle(Theme.label)
-                        .frame(width: 80, height: 56)
-                        .background(KeySurface(shape: RoundedRectangle(cornerRadius: 14, style: .continuous)))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 20)
-            }
-            .padding(.horizontal, -20)
         }
     }
 }

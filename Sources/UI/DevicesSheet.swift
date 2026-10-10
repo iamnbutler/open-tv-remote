@@ -80,20 +80,6 @@ struct DevicesSheet: View {
                         }
                     }
                 }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Free and open source", systemImage: "heart.fill")
-                            .font(.headline)
-                            .foregroundStyle(Theme.accent)
-                        Text("No subscriptions, no trials, no ads, no tracking, no account. Open Remote talks directly to your TV over your Wi-Fi and nothing leaves your home network.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Link("View the source on GitHub", destination: URL(string: "https://github.com/iamnbutler/open-tv-remote")!)
-                            .font(.footnote.weight(.semibold))
-                    }
-                    .padding(.vertical, 4)
-                }
             }
             .navigationTitle("TVs")
             #if os(iOS)
