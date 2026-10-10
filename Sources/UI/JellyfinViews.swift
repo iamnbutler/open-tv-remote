@@ -566,6 +566,7 @@ struct JellyfinStatusBar: View {
             switch jellyfin.playStatus {
             case .idle: EmptyView()
             case .openingApp: banner("Opening Jellyfin on the TV…", progress: true)
+            case .starting(let name): banner("Starting \(name)…", progress: true)
             case .sent(let name): banner("Playing \(name)", progress: false)
             case .failed(let message): banner(message, progress: false, color: Theme.power)
             }

@@ -33,24 +33,9 @@ struct WatchScreen: View {
         HStack {
             Text("Watch").font(.system(size: 28, weight: .bold, design: .rounded))
             Spacer()
-            #if os(macOS)
-            SettingsLink { settingsIcon }
-                .buttonStyle(.plain)
-            #else
-            Button { model.showingSettings = true } label: { settingsIcon }
-                .buttonStyle(.plain)
-            #endif
+            SettingsButton()
         }
         .frame(height: 48)
-    }
-
-    private var settingsIcon: some View {
-        Image(systemName: "gearshape.fill")
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Theme.label)
-            .frame(width: 44, height: 44)
-            .background(KeySurface(shape: Circle()))
-            .accessibilityLabel("Settings")
     }
 
     @ViewBuilder private var apps: some View {

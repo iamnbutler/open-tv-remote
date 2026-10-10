@@ -270,6 +270,7 @@ struct JellyfinSession: Decodable, Identifiable, Hashable, Sendable {
     let deviceID: String?
     let deviceName: String?
     let client: String?
+    let remoteEndPoint: String?
     let remoteControl: Bool?
     let nowPlaying: JellyfinItem?
     let playState: PlayState?
@@ -283,9 +284,15 @@ struct JellyfinSession: Decodable, Identifiable, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id = "Id", deviceID = "DeviceId", deviceName = "DeviceName", client = "Client"
         case remoteControl = "SupportsRemoteControl", nowPlaying = "NowPlayingItem", playState = "PlayState"
+        case remoteEndPoint = "RemoteEndPoint"
     }
 
     var supportsRemoteControl: Bool { remoteControl ?? false }
+    /// Whether this session's app connects from `host`. The server may report an IPv4-mapped IPv6 address.
+    func isAt(_ host: String) -> Bool {
+        guard let remoteEndPoint else { return false }
+        return remoteEndPoint == host || remoteEndPoint.hasSuffix(":\(host)")
+    }
     var title: String { [deviceName, client].compactMap { $0 }.joined(separator: " · ") }
 }
 
