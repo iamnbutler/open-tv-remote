@@ -1,0 +1,203 @@
+import Foundation
+import Observation
+
+@MainActor
+@Observable
+final class AppModel: TVDriverDelegate {
+    private(set) var devices: [TVDevice] = DeviceStore.load()
+    private(set) var currentID: String? = DeviceStore.currentID
+    private(set) var state: ConnectionState = .idle
+    private(set) var installedApps: [TVApp]?
+    /// True while we search the network for a saved TV that stopped answering at its old address.
+    private(set) var isRelocating = false
+
+    var showingDevices = false
+    var showingKeyboard = false
+    var showingApps = false
+
+    let discovery = Discovery()
+
+    @ObservationIgnored private var driver: TVDriver?
+    @ObservationIgnored private var relocateTask: Task<Void, Never>?
+    @ObservationIgnored private var relocationAttempted = false
+
+    var current: TVDevice? { devices.first { $0.id == currentID } }
+
+    init() {
+        if let current {
+            activate(current)
+        }
+    }
+
+    // MARK: Devices
+
+    func select(_ device: TVDevice) {
+        if !devices.contains(where: { $0.id == device.id }) {
+            devices.append(device)
+            DeviceStore.save(devices)
+        }
+        activate(devices.first { $0.id == device.id } ?? device)
+    }
+
+    func forget(_ device: TVDevice) {
+        devices.removeAll { $0.id == device.id }
+        DeviceStore.save(devices)
+        if device.id == currentID {
+            driver?.disconnect()
+            driver = nil
+            currentID = nil
+            DeviceStore.currentID = nil
+            state = .idle
+            installedApps = nil
+        }
+    }
+
+    private func activate(_ device: TVDevice) {
+        driver?.disconnect()
+        relocateTask?.cancel()
+        relocateTask = nil
+        isRelocating = false
+        relocationAttempted = false
+        currentID = device.id
+        DeviceStore.currentID = device.id
+        installedApps = nil
+        let driver = Self.makeDriver(device)
+        driver.delegate = self
+        self.driver = driver
+        state = driver.state
+        driver.connect()
+    }
+
+    private static func makeDriver(_ device: TVDevice) -> TVDriver {
+        switch device.brand {
+        case .androidTV: AndroidTVDriver(device: device)
+        case .roku: RokuDriver(device: device)
+        case .samsung: SamsungDriver(device: device)
+        case .lg: LGDriver(device: device)
+        }
+    }
+
+    // MARK: Connection
+
+    func reconnect() {
+        guard let driver else { return }
+        switch state {
+        case .connected, .connecting, .pairing: return
+        default:
+            relocationAttempted = false
+            driver.connect()
+        }
+    }
+
+    /// iOS kills sockets in the background without telling us, so the first press after
+    /// returning would go into a dead connection. Drop it ourselves and reconnect on return.
+    func sceneDidEnterBackground() {
+        if case .pairing = state { return }
+        driver?.disconnect()
+    }
+
+    func sceneDidBecomeActive() { reconnect() }
+
+    /// Routers hand out new addresses. If a saved TV stops answering, look for one with the same
+    /// brand and name elsewhere on the network and move it there. Pairing survives the move.
+    private func relocate(_ device: TVDevice) {
+        guard relocateTask == nil, !relocationAttempted else { return }
+        relocationAttempted = true
+        isRelocating = true
+        relocateTask = Task {
+            defer {
+                isRelocating = false
+                relocateTask = nil
+            }
+            if !discovery.isScanning { discovery.start() }
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, currentID == device.id else { return }
+                if let match = discovery.found.first(where: {
+                    $0.brand == device.brand && $0.name == device.name && $0.host != device.host
+                }) {
+                    move(device, to: match.host)
+                    return
+                }
+                if !discovery.isScanning { return }
+            }
+        }
+    }
+
+    private func move(_ device: TVDevice, to host: String) {
+        var moved = device
+        moved.host = host
+        devices.removeAll { $0.id == moved.id }
+        if let i = devices.firstIndex(where: { $0.id == device.id }) {
+            devices[i] = moved
+        } else {
+            devices.append(moved)
+        }
+        DeviceStore.save(devices)
+        activate(moved)
+    }
+
+    /// Explicit user action — this is the only path that puts something on the TV screen.
+    func startPairing() { driver?.pair() }
+
+    func submitPairingCode(_ code: String) { driver?.submitPairingCode(code) }
+
+    func cancelPairing() {
+        driver?.disconnect()
+        driver?.connect()
+    }
+
+    // MARK: Commands
+
+    func press(_ key: RemoteKey) { driver?.send(key) }
+
+    func supports(_ key: RemoteKey) -> Bool { driver?.supports(key) ?? true }
+
+    func sendText(_ text: String) { driver?.sendText(text) }
+
+    func launch(_ app: TVApp) { driver?.launch(app) }
+
+    /// Shortcuts for the remote's app row: installed apps when the TV can list them, else the catalog.
+    var shortcutApps: [(app: TVApp, style: CatalogApp?)] {
+        guard let brand = current?.brand else { return [] }
+        if let installedApps, !installedApps.isEmpty {
+            let favorites = CatalogApp.all.compactMap { c in installedApps.first { CatalogApp.match(name: $0.name) == c }.map { ($0, Optional(c)) } }
+            if !favorites.isEmpty { return favorites }
+        }
+        return CatalogApp.all.compactMap { c in c.tvApp(for: brand).map { ($0, Optional(c)) } }
+    }
+
+    var allApps: [(app: TVApp, style: CatalogApp?)] {
+        guard let brand = current?.brand else { return [] }
+        if let installedApps, !installedApps.isEmpty {
+            return installedApps.map { ($0, CatalogApp.match(name: $0.name)) }
+        }
+        return CatalogApp.all.compactMap { c in c.tvApp(for: brand).map { ($0, Optional(c)) } }
+    }
+
+    func refreshApps() async {
+        guard let driver else { return }
+        if let apps = await driver.installedApps() {
+            installedApps = apps
+        }
+    }
+
+    // MARK: TVDriverDelegate
+
+    func driver(_ driver: TVDriver, didChangeState state: ConnectionState) {
+        guard driver === self.driver else { return }
+        self.state = state
+        if case .failed = state, let current {
+            relocate(current)
+        }
+        if state == .connected, installedApps == nil {
+            Task { await refreshApps() }
+        }
+    }
+
+    func driver(_ driver: TVDriver, didUpdateDevice device: TVDevice) {
+        guard let i = devices.firstIndex(where: { $0.id == device.id }) else { return }
+        devices[i] = device
+        DeviceStore.save(devices)
+    }
+}
