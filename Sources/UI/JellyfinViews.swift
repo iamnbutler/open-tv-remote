@@ -110,11 +110,6 @@ struct JellyfinRows: View {
     var body: some View {
         let jellyfin = model.jellyfin
         VStack(alignment: .leading, spacing: 14) {
-            if let target = jellyfin.target(for: model.current), target.nowPlaying != nil {
-                NowPlaying(session: target)
-                    .padding(14)
-                    .background(KeySurface(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
-            }
             if !jellyfin.resume.isEmpty {
                 row("Continue watching") {
                     ForEach(jellyfin.resume) { item in
@@ -130,6 +125,7 @@ struct JellyfinRows: View {
                             Button("Play from the beginning", systemImage: "backward.end") {
                                 jellyfin.play(item, resume: false, on: model.current) { model.launch($0) }
                             }
+                            PinButton(item: item.pinTarget)
                         }
                     }
                 }
@@ -141,6 +137,7 @@ struct JellyfinRows: View {
                             Card(item: library, title: library.name, subtitle: nil, progress: nil)
                         }
                         .buttonStyle(PressScaleStyle())
+                        .contextMenu { PinButton(item: library) }
                     }
                 }
             }
@@ -160,10 +157,7 @@ struct JellyfinRows: View {
 
     private func row<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .tracking(0.8)
-                .foregroundStyle(Theme.secondary)
+            SectionTitle(title)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) { content() }
                     .padding(.horizontal, 20)
@@ -301,6 +295,7 @@ private struct Poster: View {
                 if item.resumeTicks != nil { asking = true } else { play(resume: false) }
             } label: { poster }
             .buttonStyle(PressScaleStyle())
+            .contextMenu { PinButton(item: item) }
             .confirmationDialog(item.name, isPresented: $asking) {
                 Button("Resume") { play(resume: true) }
                 Button("Play from the beginning") { play(resume: false) }
@@ -308,6 +303,7 @@ private struct Poster: View {
         } else {
             NavigationLink(value: item.type == "Series" ? JellyfinRoute.series(item) : JellyfinRoute.library(item)) { poster }
                 .buttonStyle(PressScaleStyle())
+                .contextMenu { PinButton(item: item) }
         }
     }
 
@@ -386,6 +382,18 @@ private struct SeriesView: View {
 
     var body: some View {
         List {
+            Section {
+                HStack(spacing: 10) {
+                    bigButton("Next episode", systemImage: "play.fill", filled: true) {
+                        model.jellyfin.playNext(in: series, on: model.current) { model.launch($0) }
+                    }
+                    bigButton("Shuffle", systemImage: "shuffle", filled: false) {
+                        model.jellyfin.shuffle(series, on: model.current) { model.launch($0) }
+                    }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
             if seasons.count > 1 {
                 Picker("Season", selection: $season) {
                     ForEach(seasons) { Text($0.name).tag(Optional($0.id)) }
@@ -400,6 +408,14 @@ private struct SeriesView: View {
         .navigationTitle(series.name)
         .scrollContentBackground(.hidden)
         .background(Theme.background)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                let pinned = model.jellyfin.isPinned(series)
+                Button(pinned ? "Unpin" : "Pin to Watch", systemImage: pinned ? "pin.slash" : "pin") {
+                    model.jellyfin.togglePin(series)
+                }
+            }
+        }
         .task {
             guard let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else { return }
             seasons = (try? await api.seasons(user: user, series: series.id)) ?? []
@@ -411,6 +427,77 @@ private struct SeriesView: View {
             episodes = nil
             episodes = (try? await api.episodes(user: user, series: series.id, season: season)) ?? []
         }
+    }
+}
+
+extension SeriesView {
+    fileprivate func bigButton(_ title: String, systemImage: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(filled ? Color.white : Theme.label)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(filled ? jellyfinPurple : Color.white.opacity(0.08)))
+        }
+        .buttonStyle(PressScaleStyle())
+    }
+}
+
+// MARK: - Pins and now playing
+
+/// Pin or unpin something on the Watch page.
+private struct PinButton: View {
+    @Environment(AppModel.self) private var model
+    let item: JellyfinItem?
+
+    var body: some View {
+        if let item {
+            let pinned = model.jellyfin.isPinned(item)
+            Button(pinned ? "Unpin \(item.name)" : "Pin \(item.name) to Watch", systemImage: pinned ? "pin.slash" : "pin") {
+                model.jellyfin.togglePin(item)
+            }
+        }
+    }
+}
+
+/// Big posters for the things pinned to the Watch page. Shows open with Next episode and Shuffle.
+struct JellyfinPinnedGrid: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle("Pinned")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 14)], spacing: 16) {
+                ForEach(model.jellyfin.pins) { Poster(item: $0) }
+            }
+        }
+    }
+}
+
+struct JellyfinNowPlayingCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let target = model.jellyfin.target(for: model.current), target.nowPlaying != nil {
+            NowPlaying(session: target)
+                .padding(14)
+                .background(KeySurface(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
+        }
+    }
+}
+
+extension JellyfinItem {
+    /// What "pin" means for this item: an episode pins its show.
+    var pinTarget: JellyfinItem? {
+        guard type == "Episode" else { return self }
+        guard let seriesID else { return nil }
+        return JellyfinItem(id: seriesID, name: seriesName ?? name, type: "Series", collectionType: nil, seriesName: nil,
+                            seriesID: nil, seasonNumber: nil, episodeNumber: nil, year: nil, overview: nil,
+                            runTimeTicks: nil, imageTags: ["Primary": ""], userData: nil)
     }
 }
 

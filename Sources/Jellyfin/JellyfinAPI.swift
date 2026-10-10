@@ -126,6 +126,16 @@ struct JellyfinAPI: Sendable {
         return result.items
     }
 
+    func item(user: String, id: String) async throws -> JellyfinItem {
+        try await get("Items/\(id)", ["userId": user])
+    }
+
+    /// The episode to watch next in one series.
+    func nextUp(user: String, series: String) async throws -> JellyfinItem? {
+        let result: JellyfinItems = try await get("Shows/NextUp", ["userId": user, "seriesId": series, "limit": "1"])
+        return result.items.first
+    }
+
     func seasons(user: String, series: String) async throws -> [JellyfinItem] {
         let result: JellyfinItems = try await get("Shows/\(series)/Seasons", ["userId": user])
         return result.items
@@ -158,9 +168,12 @@ struct JellyfinAPI: Sendable {
         return all.filter { $0.supportsRemoteControl && $0.deviceID != deviceID }
     }
 
-    func play(_ items: [String], on session: String, startTicks: Int64? = nil) async throws {
+    enum PlayCommand: String { case now = "PlayNow", shuffle = "PlayShuffle" }
+
+    /// Shuffle takes a container (a series, a season) and plays everything in it in random order.
+    func play(_ items: [String], on session: String, command: PlayCommand = .now, startTicks: Int64? = nil) async throws {
         _ = try await request("POST", "Sessions/\(session)/Playing", query: [
-            "playCommand": "PlayNow", "itemIds": items.joined(separator: ","), "startPositionTicks": startTicks.map(String.init),
+            "playCommand": command.rawValue, "itemIds": items.joined(separator: ","), "startPositionTicks": startTicks.map(String.init),
         ])
     }
 

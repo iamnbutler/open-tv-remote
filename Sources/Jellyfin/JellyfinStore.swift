@@ -15,6 +15,32 @@ final class JellyfinStore {
         var userName: String
     }
 
+    /// Just enough of an item to draw and open it without asking the server first.
+    struct Pin: Codable, Hashable {
+        var server: String
+        var item: Item
+
+        struct Item: Codable, Hashable {
+            var id: String
+            var name: String
+            var type: String
+            var collectionType: String?
+
+            init(_ item: JellyfinItem) {
+                id = item.id
+                name = item.name
+                type = item.type
+                collectionType = item.collectionType
+            }
+
+            var jellyfin: JellyfinItem {
+                JellyfinItem(id: id, name: name, type: type, collectionType: collectionType, seriesName: nil, seriesID: nil,
+                             seasonNumber: nil, episodeNumber: nil, year: nil, overview: nil, runTimeTicks: nil,
+                             imageTags: ["Primary": ""], userData: nil)
+            }
+        }
+    }
+
     struct Found: Identifiable, Hashable {
         var id: String { info.id }
         let url: URL
@@ -199,12 +225,40 @@ final class JellyfinStore {
     }
 
     /// Plays an item on the TV's Jellyfin app, opening the app first if it isn't running.
-    func play(_ item: JellyfinItem, resume: Bool, on tv: TVDevice?, session chosen: JellyfinSession? = nil,
-              launch: @escaping (TVApp) -> Void) {
+    func play(_ item: JellyfinItem, resume: Bool, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+        perform(item.name, on: tv, launch: launch) { api, session in
+            try await api.play([item.id], on: session, startTicks: resume ? item.resumeTicks : nil)
+        }
+    }
+
+    /// Plays the next unwatched episode of a series, resuming it if it was started.
+    func playNext(in series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+        guard let api, let user = server?.userID else { return }
+        Task {
+            guard let next = try? await api.nextUp(user: user, series: series.id) else {
+                // Everything watched (or never started): start from the first episode.
+                perform(series.name, on: tv, launch: launch) { api, session in
+                    try await api.play([series.id], on: session)
+                }
+                return
+            }
+            play(next, resume: true, on: tv, launch: launch)
+        }
+    }
+
+    func shuffle(_ series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+        perform("\(series.name) on shuffle", on: tv, launch: launch) { api, session in
+            try await api.play([series.id], on: session, command: .shuffle)
+        }
+    }
+
+    /// Finds (or opens) the Jellyfin app on the TV, then runs `command` against its session.
+    private func perform(_ name: String, on tv: TVDevice?, launch: @escaping (TVApp) -> Void,
+                         command: @escaping (JellyfinAPI, String) async throws -> Void) {
         guard let api else { return }
         Task {
             await refreshSessions()
-            var session = chosen ?? target(for: tv)
+            var session = target(for: tv)
             if session == nil {
                 guard let tv, let app = Self.launchApp(for: tv.brand) else {
                     playStatus = .failed("Open Jellyfin on your TV, then try again.")
@@ -228,14 +282,49 @@ final class JellyfinStore {
             }
             guard let session else { return }
             do {
-                try await api.play([item.id], on: session.id, startTicks: resume ? item.resumeTicks : nil)
-                playStatus = .sent(item.name)
+                try await command(api, session.id)
+                playStatus = .sent(name)
                 try? await Task.sleep(for: .seconds(5))
                 await refreshHome()
             } catch {
                 playStatus = .failed(error.localizedDescription)
             }
         }
+    }
+
+    // MARK: Pins
+
+    /// Shows, movies and libraries pinned to the top of the Watch page, for this server.
+    var pins: [JellyfinItem] {
+        allPins.filter { $0.server == server?.id }.map(\.item.jellyfin)
+    }
+
+    func isPinned(_ item: JellyfinItem) -> Bool {
+        allPins.contains { $0.server == server?.id && $0.item.id == item.id }
+    }
+
+    func togglePin(_ item: JellyfinItem) {
+        guard let server else { return }
+        if isPinned(item) {
+            allPins.removeAll { $0.server == server.id && $0.item.id == item.id }
+        } else {
+            allPins.append(Pin(server: server.id, item: Pin.Item(item)))
+        }
+    }
+
+    func movePins(from source: IndexSet, to destination: Int) {
+        var mine = allPins.filter { $0.server == server?.id }
+        mine.move(fromOffsets: source, toOffset: destination)
+        allPins = allPins.filter { $0.server != server?.id } + mine
+    }
+
+    func removePins(at offsets: IndexSet) {
+        let ids = offsets.map { pins[$0].id }
+        allPins.removeAll { $0.server == server?.id && ids.contains($0.item.id) }
+    }
+
+    private var allPins: [Pin] = Keys.loadPins() {
+        didSet { Keys.savePins(allPins) }
     }
 
     func send(_ command: JellyfinAPI.PlayState, to session: JellyfinSession, seekBy seconds: Int64? = nil) {
@@ -272,6 +361,15 @@ private enum Keys {
     static let server = "jellyfin.server.v1"
     static let targetsKey = "jellyfin.targets.v1"
     static let deviceKey = "jellyfin.deviceID"
+    static let pinsKey = "jellyfin.pins.v1"
+
+    static func loadPins() -> [JellyfinStore.Pin] {
+        UserDefaults.standard.data(forKey: pinsKey).flatMap { try? JSONDecoder().decode([JellyfinStore.Pin].self, from: $0) } ?? []
+    }
+
+    static func savePins(_ pins: [JellyfinStore.Pin]) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(pins), forKey: pinsKey)
+    }
 
     static var deviceID: String {
         if let id = UserDefaults.standard.string(forKey: deviceKey) { return id }
