@@ -39,6 +39,12 @@ struct RootView: View {
                 .jellyfinDestinations()
         }
             .safeAreaInset(edge: .bottom) { JellyfinStatusBar() }
+            #if os(iOS)
+            .background {
+                VolumeButtons(isEnabled: scenePhase == .active && model.current != nil) { model.press($0) }
+                    .frame(width: 1, height: 1)
+            }
+            #endif
             #if os(macOS)
             .frame(minWidth: 380, minHeight: 760)
             #endif
