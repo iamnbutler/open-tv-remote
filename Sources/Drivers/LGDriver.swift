@@ -209,6 +209,16 @@ final class LGDriver: TVDriver {
         request("ssap://com.webos.service.ime/insertText", ["text": text, "replace": 0])
     }
 
+    var typesLive: Bool { true }
+
+    func editText(from old: String, to new: String) {
+        let kept = old.commonPrefixCount(with: new)
+        if old.count > kept {
+            request("ssap://com.webos.service.ime/deleteCharacters", ["count": old.count - kept])
+        }
+        if new.count > kept { sendText(String(new.dropFirst(kept))) }
+    }
+
     func launch(_ app: TVApp) {
         guard state == .connected else {
             guard device.token != nil else { return }

@@ -56,7 +56,23 @@ protocol TVDriver: AnyObject {
     func supports(_ key: RemoteKey) -> Bool
     func send(_ key: RemoteKey)
     func sendText(_ text: String)
+    /// Whether `editText` reaches the TV as the user types. Otherwise text goes over with `sendText` on submit.
+    var typesLive: Bool { get }
+    /// Brings the TV's focused text field from `old` to `new`.
+    func editText(from old: String, to new: String)
     func launch(_ app: TVApp)
     /// Apps installed on the TV, or nil if the protocol can't list them.
     func installedApps() async -> [TVApp]?
+}
+
+extension TVDriver {
+    var typesLive: Bool { false }
+    func editText(from old: String, to new: String) {}
+}
+
+extension String {
+    /// How many characters `self` and `other` share at the start.
+    func commonPrefixCount(with other: String) -> Int {
+        zip(self, other).prefix { $0 == $1 }.count
+    }
 }
