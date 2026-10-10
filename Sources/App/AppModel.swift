@@ -183,16 +183,6 @@ final class AppModel: TVDriverDelegate {
         return true
     }
 
-    /// Shortcuts for the remote's app row: installed apps when the TV can list them, else the catalog.
-    var shortcutApps: [(app: TVApp, style: CatalogApp?)] {
-        guard let brand = current?.brand else { return [] }
-        if let installedApps, !installedApps.isEmpty {
-            let favorites = CatalogApp.all.compactMap { c in installedApps.first { CatalogApp.match(name: $0.name) == c }.map { ($0, Optional(c)) } }
-            if !favorites.isEmpty { return favorites }
-        }
-        return CatalogApp.all.compactMap { c in c.tvApp(for: brand).map { ($0, Optional(c)) } }
-    }
-
     var allApps: [(app: TVApp, style: CatalogApp?)] {
         guard let brand = current?.brand else { return [] }
         if let installedApps, !installedApps.isEmpty {
@@ -203,13 +193,21 @@ final class AppModel: TVDriverDelegate {
 
     // MARK: Watch page apps
 
-    /// App name → whether it's on the Watch page. Apps the user hasn't chosen for follow `shortcutApps`.
+    private static let defaultAppIDs: Set<String> = ["youtube", "netflix", "prime", "disney", "appletv", "jellyfin"]
+
+    /// Explicit choices only; missing entries follow the defaults without writing them to storage.
     private var appChoices: [String: Bool] = UserDefaults.standard.dictionary(forKey: "apps.visible.v1") as? [String: Bool] ?? [:] {
         didSet { UserDefaults.standard.set(appChoices, forKey: "apps.visible.v1") }
     }
 
     func isShown(_ app: TVApp) -> Bool {
-        appChoices[app.name.lowercased()] ?? shortcutApps.contains { $0.app.name == app.name }
+        if let choice = appChoices[app.name.lowercased()] { return choice }
+        guard let brand = current?.brand else { return false }
+        return CatalogApp.all.contains { catalog in
+            Self.defaultAppIDs.contains(catalog.id)
+                && (catalog.launchID(for: brand) == app.launchID
+                    || app.name.caseInsensitiveCompare(catalog.name) == .orderedSame)
+        }
     }
 
     func setShown(_ app: TVApp, _ shown: Bool) {
