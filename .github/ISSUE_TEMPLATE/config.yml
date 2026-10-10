@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/iamnbutler/open-tv-remote/wiki/Troubleshooting
+    about: Most connection problems are covered here.
+  - name: Security problem
+    url: https://github.com/iamnbutler/open-tv-remote/security/advisories/new
+    about: Report security problems privately, not as a public issue.
