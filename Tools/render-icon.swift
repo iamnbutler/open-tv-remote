@@ -34,52 +34,42 @@ func render(size: Int, mac: Bool, to path: String) {
     }
 
     let space = CGColorSpace(name: CGColorSpace.sRGB)!
-    let bg = CGGradient(colorsSpace: space, colors: [color(0x1C2026), color(0x08090B)] as CFArray, locations: [0, 1])!
+    let bg = CGGradient(colorsSpace: space, colors: [color(0x16181B), color(0x060708)] as CFArray, locations: [0, 1])!
     ctx.drawLinearGradient(bg, start: CGPoint(x: canvas.midX, y: canvas.minY), end: CGPoint(x: canvas.midX, y: canvas.maxY), options: [])
 
-    // Soft mint glow behind the remote.
-    let glow = CGGradient(colorsSpace: space, colors: [color(0x5CE3A6, 0.28), color(0x5CE3A6, 0)] as CFArray, locations: [0, 1])!
-    let gc = CGPoint(x: canvas.midX, y: canvas.minY + 400 * k)
-    ctx.drawRadialGradient(glow, startCenter: gc, startRadius: 0, endCenter: gc, endRadius: 460 * k, options: [])
-
-    // Remote body.
-    let body = r(302, 150, 420, 800)
+    // The app's power key: a raised dark disc with a coral power symbol.
+    let center = CGPoint(x: canvas.midX, y: canvas.midY)
+    let radius = 330 * k
+    let disc = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
     ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: 24 * k), blur: 50 * k, color: color(0x000000, 0.6))
-    ctx.addPath(CGPath(roundedRect: body, cornerWidth: 200 * k, cornerHeight: 200 * k, transform: nil))
-    ctx.setFillColor(color(0x24282F))
-    ctx.fillPath()
+    ctx.setShadow(offset: CGSize(width: 0, height: 28 * k), blur: 70 * k, color: color(0x000000, 0.75))
+    ctx.setFillColor(color(0x26282C))
+    ctx.fillEllipse(in: disc)
     ctx.restoreGState()
     ctx.saveGState()
-    ctx.addPath(CGPath(roundedRect: body, cornerWidth: 200 * k, cornerHeight: 200 * k, transform: nil))
+    ctx.addEllipse(in: disc)
     ctx.clip()
-    let bodyGrad = CGGradient(colorsSpace: space, colors: [color(0x353A43), color(0x1A1D22)] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(bodyGrad, start: CGPoint(x: body.midX, y: body.minY), end: CGPoint(x: body.midX, y: body.maxY), options: [])
+    let discGrad = CGGradient(colorsSpace: space, colors: [color(0x323439), color(0x1F2124)] as CFArray, locations: [0, 1])!
+    ctx.drawLinearGradient(discGrad, start: CGPoint(x: center.x, y: disc.minY), end: CGPoint(x: center.x, y: disc.maxY), options: [])
     ctx.restoreGState()
-    ctx.addPath(CGPath(roundedRect: body.insetBy(dx: 2 * k, dy: 2 * k), cornerWidth: 198 * k, cornerHeight: 198 * k, transform: nil))
-    ctx.setStrokeColor(color(0xFFFFFF, 0.10))
-    ctx.setLineWidth(4 * k)
-    ctx.strokePath()
+    ctx.setStrokeColor(color(0xFFFFFF, 0.09))
+    ctx.setLineWidth(5 * k)
+    ctx.strokeEllipse(in: disc.insetBy(dx: 2.5 * k, dy: 2.5 * k))
 
-    // D-pad ring + OK.
-    let center = CGPoint(x: canvas.minX + 512 * k, y: canvas.minY + 400 * k)
-    ctx.setStrokeColor(color(0x5CE3A6))
-    ctx.setLineWidth(40 * k)
-    ctx.addArc(center: center, radius: 138 * k, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+    // Power symbol. y grows downward here, so -90° points up.
+    let coral = color(0xFF5C54)
+    ctx.saveGState()
+    ctx.setShadow(offset: .zero, blur: 40 * k, color: color(0xFF5C54, 0.35))
+    ctx.setStrokeColor(coral)
+    ctx.setLineWidth(46 * k)
+    ctx.setLineCap(.round)
+    let gap: CGFloat = 0.30 * .pi
+    ctx.addArc(center: CGPoint(x: center.x, y: center.y + 18 * k), radius: 158 * k,
+               startAngle: -.pi / 2 + gap, endAngle: -.pi / 2 - gap + 2 * .pi, clockwise: false)
+    ctx.move(to: CGPoint(x: center.x, y: center.y - 190 * k))
+    ctx.addLine(to: CGPoint(x: center.x, y: center.y - 10 * k))
     ctx.strokePath()
-    ctx.setFillColor(color(0x5CE3A6))
-    ctx.fillEllipse(in: CGRect(x: center.x - 62 * k, y: center.y - 62 * k, width: 124 * k, height: 124 * k))
-
-    // A grid of small keys.
-    ctx.setFillColor(color(0x4A505B))
-    for row in 0..<2 {
-        for col in 0..<3 {
-            let x = 376 + CGFloat(col) * 100
-            let y = 628 + CGFloat(row) * 100
-            ctx.addPath(CGPath(roundedRect: r(x, y, 72, 72), cornerWidth: 22 * k, cornerHeight: 22 * k, transform: nil))
-        }
-    }
-    ctx.fillPath()
+    ctx.restoreGState()
 
     let image = ctx.makeImage()!
     let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, UTType.png.identifier as CFString, 1, nil)!

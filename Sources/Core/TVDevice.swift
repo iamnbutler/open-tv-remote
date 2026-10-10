@@ -56,6 +56,8 @@ struct TVDevice: Codable, Identifiable, Hashable, Sendable {
     var token: String?
     /// Android TV: the TV has accepted our client certificate.
     var isPaired: Bool = false
+    /// Samsung: Wi-Fi/Ethernet MAC, so we can wake the TV with a Wake-on-LAN packet.
+    var macAddress: String?
 
     var hasCredentials: Bool {
         switch brand {

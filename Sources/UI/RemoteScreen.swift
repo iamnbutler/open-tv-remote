@@ -124,7 +124,10 @@ private struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power") {
+            // Where the TV has a separate full power-off (Samsung), holding the key sends it.
+            KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power",
+                   holdAction: model.supports(.powerOff) ? { model.press(.powerOff) } : nil,
+                   holdName: "Turn off TV") {
                 model.press(.power)
             } label: {
                 Image(systemName: "power").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.power)

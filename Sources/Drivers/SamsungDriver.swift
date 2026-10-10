@@ -16,6 +16,8 @@ final class SamsungDriver: TVDriver {
     private var pendingKeys: [String] = []
     private var appsContinuation: CheckedContinuation<[TVApp]?, Never>?
     private var appsRequest = 0
+    /// Reconnect attempts left after sending a Wake-on-LAN packet.
+    private var wakeAttempts = 0
 
     init(device: TVDevice) {
         self.device = device
@@ -36,6 +38,7 @@ final class SamsungDriver: TVDriver {
         socket?.close()
         socket = nil
         pendingKeys = []
+        wakeAttempts = 0
         appsContinuation?.resume(returning: nil)
         appsContinuation = nil
         state = .idle
@@ -55,6 +58,11 @@ final class SamsungDriver: TVDriver {
         ws.onClose = { [weak self] _ in
             guard let self else { return }
             self.socket = nil
+            if self.wakeAttempts > 0 {
+                self.wakeAttempts -= 1
+                self.retryAfterWake()
+                return
+            }
             switch self.state {
             case .connected: self.state = .idle
             case .pairing: self.state = .failed("The TV didn't allow the connection.")
@@ -76,7 +84,9 @@ final class SamsungDriver: TVDriver {
                 device.token = token
                 delegate?.driver(self, didUpdateDevice: device)
             }
+            wakeAttempts = 0
             state = .connected
+            refreshInfo()
             let queued = pendingKeys
             pendingKeys = []
             queued.forEach(sendKey)
@@ -107,6 +117,10 @@ final class SamsungDriver: TVDriver {
     func supports(_ key: RemoteKey) -> Bool { Self.keyName(key) != nil }
 
     func send(_ key: RemoteKey) {
+        if key == .powerOff {
+            holdPower()
+            return
+        }
         guard var name = Self.keyName(key) else { return }
         if key == .playPause {
             name = playing ? "KEY_PAUSE" : "KEY_PLAY"
@@ -114,6 +128,10 @@ final class SamsungDriver: TVDriver {
         }
         guard state == .connected else {
             guard device.token != nil else { return }
+            if key == .power, device.macAddress != nil {
+                powerOnOrQueue()
+                return
+            }
             if pendingKeys.count < 10 { pendingKeys.append(name) }
             if socket == nil { open(prompting: false) }
             return
@@ -121,11 +139,85 @@ final class SamsungDriver: TVDriver {
         sendKey(name)
     }
 
-    private func sendKey(_ name: String) {
+    private func sendKey(_ name: String) { sendKey(name, cmd: "Click") }
+
+    private func sendKey(_ name: String, cmd: String) {
         socket?.send(json: [
             "method": "ms.remote.control",
-            "params": ["Cmd": "Click", "DataOfCmd": name, "Option": "false", "TypeOfRemote": "SendRemoteKey"],
+            "params": ["Cmd": cmd, "DataOfCmd": name, "Option": "false", "TypeOfRemote": "SendRemoteKey"],
         ])
+    }
+
+    // MARK: Power
+
+    /// Holding power for a few seconds turns the TV fully off. On The Frame a short press
+    /// only toggles Art Mode.
+    private func holdPower() {
+        guard state == .connected else { return }
+        sendKey("KEY_POWER", cmd: "Press")
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            sendKey("KEY_POWER", cmd: "Release")
+        }
+    }
+
+    /// Power pressed while we're not connected. If the TV is awake, our connection just dropped,
+    /// so reconnect and send power as usual. If it's asleep, wake it with Wake-on-LAN instead;
+    /// sending KEY_POWER after waking it would switch it straight back off.
+    private func powerOnOrQueue() {
+        Task {
+            if await isAwake() {
+                if pendingKeys.count < 10 { pendingKeys.append("KEY_POWER") }
+                if socket == nil { open(prompting: false) }
+            } else {
+                wake()
+            }
+        }
+    }
+
+    private func wake() {
+        guard let mac = device.macAddress else { return }
+        WakeOnLAN.wake(mac: mac, host: device.host)
+        socket?.close()
+        socket = nil
+        pendingKeys = []
+        wakeAttempts = 5
+        state = .connecting
+        retryAfterWake()
+    }
+
+    /// The TV takes a few seconds to bring its network back up after a wake packet.
+    private func retryAfterWake() {
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard wakeAttempts > 0, socket == nil, state == .connecting else { return }
+            if let mac = device.macAddress { WakeOnLAN.wake(mac: mac, host: device.host) }
+            open(prompting: false)
+        }
+    }
+
+    private func deviceInfo(timeout: TimeInterval = 3) async -> [String: Any]? {
+        guard let data = await LocalHTTP.get(URL(string: "http://\(device.host):8001/api/v2/")!, timeout: timeout),
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        return json["device"] as? [String: Any]
+    }
+
+    /// Older models don't report PowerState; if they answer at all, they're on.
+    private func isAwake() async -> Bool {
+        guard let info = await deviceInfo(timeout: 1.5) else { return false }
+        let power = info["PowerState"] as? String
+        return power == nil || power == "on"
+    }
+
+    /// Remember the TV's MAC so we can wake it later.
+    private func refreshInfo() {
+        Task {
+            guard let info = await deviceInfo(),
+                  let mac = info["wifiMac"] as? String, WakeOnLAN.macBytes(mac) != nil,
+                  mac != device.macAddress else { return }
+            device.macAddress = mac
+            delegate?.driver(self, didUpdateDevice: device)
+        }
     }
 
     func sendText(_ text: String) {
@@ -168,7 +260,7 @@ final class SamsungDriver: TVDriver {
 
     private static func keyName(_ key: RemoteKey) -> String? {
         switch key {
-        case .power: "KEY_POWER"
+        case .power, .powerOff: "KEY_POWER"
         case .up: "KEY_UP"
         case .down: "KEY_DOWN"
         case .left: "KEY_LEFT"

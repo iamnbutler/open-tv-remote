@@ -62,6 +62,9 @@ struct KeyCap<Label: View, S: InsettableShape>: View {
     var tint: Color? = Theme.accent
     var enabled = true
     var accessibilityLabel: String
+    /// If set, a short tap fires `action` on release and holding fires this instead.
+    var holdAction: (() -> Void)? = nil
+    var holdName = "Hold"
     var action: () -> Void
     @ViewBuilder var label: () -> Label
 
@@ -69,6 +72,7 @@ struct KeyCap<Label: View, S: InsettableShape>: View {
     /// a sheet appearing) — unlike onEnded, which never fires in that case.
     @GestureState private var pressed = false
     @State private var repeatTask: Task<Void, Never>?
+    @State private var held = false
 
     var body: some View {
         label()
@@ -81,10 +85,26 @@ struct KeyCap<Label: View, S: InsettableShape>: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .updating($pressed) { _, state, _ in state = true }
+                    // onEnded doesn't run when the system cancels the touch, so a cancelled
+                    // hold never turns into a tap.
+                    .onEnded { _ in
+                        if holdAction != nil && !held { fire() }
+                    }
             )
             .onChange(of: pressed) { _, isPressed in
                 repeatTask?.cancel()
                 guard isPressed else { return }
+                if let holdAction {
+                    held = false
+                    repeatTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(700))
+                        guard !Task.isCancelled else { return }
+                        held = true
+                        Haptics.tick()
+                        holdAction()
+                    }
+                    return
+                }
                 fire()
                 if repeats { startRepeating() }
             }
@@ -93,6 +113,9 @@ struct KeyCap<Label: View, S: InsettableShape>: View {
             .accessibilityLabel(accessibilityLabel)
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { fire() }
+            .accessibilityActions {
+                if let holdAction { Button(holdName, action: holdAction) }
+            }
     }
 
     private func fire() {

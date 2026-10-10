@@ -3,6 +3,8 @@ import Foundation
 /// A brand-agnostic remote button. Each driver maps these onto whatever its TV speaks.
 enum RemoteKey: Hashable, Sendable {
     case power
+    /// A full power-off, for TVs where the power key only toggles a standby or art mode.
+    case powerOff
     case up, down, left, right, select
     case back, home, menu, info, input, search
     case volumeUp, volumeDown, mute
@@ -14,6 +16,7 @@ enum RemoteKey: Hashable, Sendable {
     var accessibilityName: String {
         switch self {
         case .power: "Power"
+        case .powerOff: "Turn off"
         case .up: "Up"
         case .down: "Down"
         case .left: "Left"

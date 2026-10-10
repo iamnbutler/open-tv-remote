@@ -332,6 +332,7 @@ final class AndroidTVDriver: TVDriver {
     private static func keyCode(_ key: RemoteKey) -> Int? {
         switch key {
         case .power: 26
+        case .powerOff: nil
         case .up: 19
         case .down: 20
         case .left: 21

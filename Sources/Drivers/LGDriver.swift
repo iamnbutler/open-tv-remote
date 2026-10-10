@@ -167,6 +167,7 @@ final class LGDriver: TVDriver {
     func supports(_ key: RemoteKey) -> Bool {
         if case .search = key { return false }
         if case .input = key { return false }
+        if case .powerOff = key { return false }
         return true
     }
 

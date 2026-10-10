@@ -91,6 +91,7 @@ final class RokuDriver: TVDriver {
     private static func keyName(_ key: RemoteKey) -> String? {
         switch key {
         case .power: "Power"
+        case .powerOff: nil
         case .up: "Up"
         case .down: "Down"
         case .left: "Left"
