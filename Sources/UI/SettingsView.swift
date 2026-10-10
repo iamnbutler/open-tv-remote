@@ -61,9 +61,10 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                         Link("View the source on GitHub", destination: URL(string: "https://github.com/iamnbutler/open-tv-remote")!)
                             .font(.footnote.weight(.semibold))
-                        Text("App icons adapted from [selfh.st](https://selfh.st/icons/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).")
+                        Link("App icons adapted from selfh.st", destination: URL(string: "https://selfh.st/icons/")!)
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        Link("CC BY 4.0 license", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
+                            .font(.footnote)
                     }
                     .padding(.vertical, 4)
                 }
