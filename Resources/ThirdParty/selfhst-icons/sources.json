@@ -1,0 +1,398 @@
+{
+  "collection": "selfh.st/icons",
+  "revision": "2053b70b283ffed5f2cc1424d1e17d9c554a846d",
+  "license": "CC-BY-4.0",
+  "licenseSource": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/LICENSE",
+  "assets": [
+    {
+      "asset": "app-netflix",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/netflix.svg",
+      "modified": true,
+      "sourceSha256": "8fbdb7d4703d6633d96393c67dbc4c5eb3974b8eb2da26e5780532040787f0c3",
+      "bundledSha256": "1ae99c21343dcdb44bd9e7f76e219ea1b3d4d26be444a7b7ea5d695339441434",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        114.75,
+        0.0,
+        282.5,
+        512.0
+      ],
+      "bundledViewBox": [
+        112.75,
+        0,
+        286.5,
+        512
+      ]
+    },
+    {
+      "asset": "app-youtube",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/youtube.svg",
+      "modified": true,
+      "sourceSha256": "88a1e9e44837551c05d6e8829664921a69ba4f6cc86ab88bf64901ddc1f3e77f",
+      "bundledSha256": "20c193167c7d20a64478a8d8727ab4a906510eadfba6a966ffa5c8d44b78050e",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        76.75,
+        512.0,
+        358.5
+      ],
+      "bundledViewBox": [
+        0,
+        74.75,
+        512,
+        362.5
+      ]
+    },
+    {
+      "asset": "app-prime",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/amazon-prime-video-light.svg",
+      "modified": false,
+      "sourceSha256": "b607df2efa187a778ed74f076d3fb9a784bfe95beea4943468de11c736df0878",
+      "bundledSha256": "b607df2efa187a778ed74f076d3fb9a784bfe95beea4943468de11c736df0878",
+      "modifications": "None",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0,
+        0,
+        512,
+        512
+      ]
+    },
+    {
+      "asset": "app-disney",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/disney-plus-light.svg",
+      "modified": true,
+      "sourceSha256": "73c4dc6d3b0015a1f494cec2d39bc76142125ea297838ed397fff46c41d0b0c8",
+      "bundledSha256": "9cb5e6768201ec8cbb4bb6370c9f09635a07ab1e70b3c9ce342326d147bb2255",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        117.0,
+        512.0,
+        278.0
+      ],
+      "bundledViewBox": [
+        0,
+        115.0,
+        512,
+        282.0
+      ]
+    },
+    {
+      "asset": "app-hulu",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/hulu-dark.svg",
+      "modified": true,
+      "sourceSha256": "312893edee15c0c89735e185ee52c463527e836f5006dc9e028fd5f77a138774",
+      "bundledSha256": "e7da0ed32f580d44470e87ee1943ba39f1344e197075a931a4911a0831fef151",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        171.5,
+        512.0,
+        169.0
+      ],
+      "bundledViewBox": [
+        0,
+        169.5,
+        512,
+        173.0
+      ]
+    },
+    {
+      "asset": "app-max",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/max-light.svg",
+      "modified": true,
+      "sourceSha256": "61b6c6059b6f72c2c84c1b9a7ebeb7a24d7e32c0aad0ef194c4f2dae42fbc7c8",
+      "bundledSha256": "1e0be999ec09325fc1a64696934471e75a612fe5e02921fc3dd5b826a8ff49b1",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        185.75,
+        512.0,
+        140.5
+      ],
+      "bundledViewBox": [
+        0,
+        183.75,
+        512,
+        144.5
+      ]
+    },
+    {
+      "asset": "app-appletv",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/apple-tv-light.svg",
+      "modified": true,
+      "sourceSha256": "46285621fb52d3fc9b5fef0e516d48cb7d61bc5347a1a33e6c11a8f68ea84695",
+      "bundledSha256": "c772cbc230047367d1c964d9397c5b30de44c69443ce17f6c24fa09cbb466192",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        125.75,
+        512.0,
+        260.5
+      ],
+      "bundledViewBox": [
+        0,
+        123.75,
+        512,
+        264.5
+      ]
+    },
+    {
+      "asset": "app-peacock",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/peacock-light.svg",
+      "modified": true,
+      "sourceSha256": "1e9a979a101a8b9cc7b964c9bb3ab46eb8770ce655c8b109f35c81014bec8ac3",
+      "bundledSha256": "fadfb044a0c5bf21560b9b9feb0886a5245c17035fadb383a7a2c4d0bb11738d",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        50.5,
+        0.0,
+        404.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        48.5,
+        0,
+        408.0,
+        512
+      ]
+    },
+    {
+      "asset": "app-paramount",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/paramount-plus-light.svg",
+      "modified": true,
+      "sourceSha256": "f9f1ef1baa1c835c96d4955e67c86ce0b27ef5f2cdb7affeaedb567cd115c144",
+      "bundledSha256": "1714fa142d37a9c6160122d1bc2c6c786d8b7a194b04cf9dfc4a09b000c17a9a",
+      "modifications": "SVG viewport cropped; artwork unchanged",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        52.0,
+        512.0,
+        408.0
+      ],
+      "bundledViewBox": [
+        0,
+        50.0,
+        512,
+        412.0
+      ]
+    },
+    {
+      "asset": "app-spotify",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/spotify-dark.svg",
+      "modified": false,
+      "sourceSha256": "aec48bc8fedb321abfde8257f55059d03e1043e889480989cdf0207b05913237",
+      "bundledSha256": "aec48bc8fedb321abfde8257f55059d03e1043e889480989cdf0207b05913237",
+      "modifications": "None",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0,
+        0,
+        512,
+        512
+      ]
+    },
+    {
+      "asset": "app-plex",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/plex.svg",
+      "modified": false,
+      "sourceSha256": "ae6e754dc2644c7ad6b41853cdac75812ccaeed4c2f08fcd88d81e2f3ec01dba",
+      "bundledSha256": "ae6e754dc2644c7ad6b41853cdac75812ccaeed4c2f08fcd88d81e2f3ec01dba",
+      "modifications": "None",
+      "originalViewBox": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0,
+        0,
+        512,
+        512
+      ]
+    },
+    {
+      "asset": "app-crunchyroll",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/crunchyroll.svg",
+      "modified": true,
+      "sourceSha256": "96bf127b4cee276c5fdd4b4bede7b8a9bcbc3aed6369a4ba52e84a259ea28c0e",
+      "bundledSha256": "0c2873b6c6c9bfd2258a3d6615d8523ab280d871fccc43d64f5aa98825dad603",
+      "modifications": "SVG viewport cropped; paths unchanged",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        3.25,
+        512.0,
+        505.5
+      ],
+      "bundledViewBox": [
+        0.0,
+        1.25,
+        512.0,
+        509.5
+      ]
+    },
+    {
+      "asset": "app-twitch",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/twitch-light.svg",
+      "modified": true,
+      "sourceSha256": "158f3ad0bb5389c76c93bcf368b94eec767d76157c6d30ca05529a01211a54a3",
+      "bundledSha256": "4b82d4e5dea7951ecc547b90aed135cb1a9240947e85f44510cd5433c662b302",
+      "modifications": "SVG viewport cropped; paths unchanged",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        31.25,
+        0.0,
+        449.5,
+        512.0
+      ],
+      "bundledViewBox": [
+        29.25,
+        0.0,
+        453.5,
+        512.0
+      ]
+    },
+    {
+      "asset": "app-jellyfin",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/jellyfin.svg",
+      "modified": false,
+      "sourceSha256": "9bfb8753d983103889a8dc248738bfd056e03f52734e2d6eeb4a5c5925148c10",
+      "bundledSha256": "9bfb8753d983103889a8dc248738bfd056e03f52734e2d6eeb4a5c5925148c10",
+      "modifications": "None",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ]
+    },
+    {
+      "asset": "app-emby",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/emby.svg",
+      "modified": false,
+      "sourceSha256": "f7967ae729cf5c94c52164acaecf9ceb470cdf1dbedc17f4798160ba0ebeeab5",
+      "bundledSha256": "f7967ae729cf5c94c52164acaecf9ceb470cdf1dbedc17f4798160ba0ebeeab5",
+      "modifications": "None",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ]
+    }
+  ]
+}

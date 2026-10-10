@@ -1,0 +1,12 @@
+Streaming app icons from selfh.st/icons and its contributors.
+https://selfh.st/icons/
+https://github.com/selfhst/icons
+
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+The complete license, including its disclaimer of warranties, is in LICENSE.txt.
+
+Source revision: 2053b70b283ffed5f2cc1424d1e17d9c554a846d
+Some SVG viewports are cropped to remove empty canvas padding; the artwork is unchanged.
+Exact source links, checksums, and per-file modifications are in sources.json.
+Brand names and logos are trademarks of their respective owners; no endorsement is implied.

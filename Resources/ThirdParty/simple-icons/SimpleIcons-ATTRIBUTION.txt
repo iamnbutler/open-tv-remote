@@ -1,0 +1,11 @@
+Tubi icon from Simple Icons and its contributors.
+https://simpleicons.org/
+https://github.com/simple-icons/simple-icons
+
+Dedicated to the public domain under CC0 1.0 Universal.
+The complete dedication and disclaimer are in SimpleIcons-LICENSE.txt.
+
+Source revision: b590c7acdbaa23fd7b4eb6749d414725e590f365
+SVG viewport cropped to remove empty canvas padding and explicit white foreground fill applied; the paths are unchanged.
+Exact source links, checksums, and per-file modifications are in SimpleIcons-sources.json.
+Brand names and logos are trademarks of their respective owners; no endorsement is implied.
