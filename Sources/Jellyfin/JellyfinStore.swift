@@ -43,6 +43,9 @@ final class JellyfinStore {
     private(set) var signInError: String?
     private(set) var sessions: [JellyfinSession] = []
     private(set) var playStatus: PlayStatus = .idle
+    /// Rows on the remote screen.
+    private(set) var resume: [JellyfinItem] = []
+    private(set) var libraries: [JellyfinItem] = []
 
     @ObservationIgnored private var signInTask: Task<Void, Never>?
     @ObservationIgnored private var pending: URL?
@@ -161,6 +164,18 @@ final class JellyfinStore {
         server = nil
         Keys.saveServer(nil)
         sessions = []
+        resume = []
+        libraries = []
+    }
+
+    // MARK: Home rows
+
+    func refreshHome() async {
+        guard let api, let server else { return }
+        async let r = api.resume(user: server.userID)
+        async let v = api.views(user: server.userID)
+        if let r = try? await r { resume = r }
+        if let v = try? await v { libraries = v }
     }
 
     // MARK: Playing on the TV
@@ -215,6 +230,8 @@ final class JellyfinStore {
             do {
                 try await api.play([item.id], on: session.id, startTicks: resume ? item.resumeTicks : nil)
                 playStatus = .sent(item.name)
+                try? await Task.sleep(for: .seconds(5))
+                await refreshHome()
             } catch {
                 playStatus = .failed(error.localizedDescription)
             }

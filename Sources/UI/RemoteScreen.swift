@@ -11,7 +11,9 @@ struct RemoteScreen: View {
             // phone — a scroll that starts on a key would otherwise press it.
             let compact = geo.size.height < 760
             let spacing: CGFloat = compact ? 10 : 18
-            let fixed: CGFloat = 48 + 54 + 192 + 72 + spacing * 5 + 28
+            // With Jellyfin on, make room for its first row; the second scrolls into view.
+            let jellyfin: CGFloat = model.jellyfin.isReady ? 150 + spacing : 0
+            let fixed: CGFloat = 48 + 54 + 192 + 72 + spacing * 5 + 28 + jellyfin
             let padHeight = min(290, max(170, geo.size.height - fixed - 8))
             ScrollView {
                 VStack(spacing: spacing) {
@@ -23,6 +25,9 @@ struct RemoteScreen: View {
                         .padding(.vertical, 4)
                     controls
                     AppRow()
+                    if model.jellyfin.isReady {
+                        JellyfinRows()
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -319,9 +324,6 @@ private struct AppRow: View {
         if model.current != nil {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    if model.jellyfin.isReady {
-                        JellyfinTile().frame(width: 108, height: 56)
-                    }
                     ForEach(model.shortcutApps.prefix(8), id: \.app.id) { entry in
                         AppTile(app: entry.app, style: entry.style) { model.launch(entry.app) }
                             .frame(width: 108, height: 56)

@@ -101,150 +101,245 @@ struct JellyfinSettingsSection: View {
     }
 }
 
-// MARK: - Remote shortcut
+// MARK: - Rows on the remote
 
-struct JellyfinTile: View {
+/// Continue watching and libraries, shown under the app shortcuts once signed in to Jellyfin.
+struct JellyfinRows: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Button {
-            Haptics.tap()
-            model.showingJellyfin = true
-        } label: {
-            Text("Jellyfin")
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: [jellyfinPurple, Color(red: 0.0, green: 0.64, blue: 0.86)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing)))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Jellyfin library")
-    }
-}
-
-// MARK: - Library browser
-
-struct JellyfinSheet: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @State private var resume: [JellyfinItem] = []
-    @State private var nextUp: [JellyfinItem] = []
-    @State private var views: [JellyfinItem] = []
-    @State private var query = ""
-    @State private var results: [JellyfinItem] = []
-    @State private var error: String?
-
-    var body: some View {
-        NavigationStack {
-            List {
-                TargetSection()
-                if !query.isEmpty {
-                    Section("Results") {
-                        ForEach(results) { ItemRow(item: $0) }
-                    }
-                } else {
-                    if !resume.isEmpty {
-                        Section("Continue watching") { ForEach(resume) { ItemRow(item: $0) } }
-                    }
-                    if !nextUp.isEmpty {
-                        Section("Next up") { ForEach(nextUp) { ItemRow(item: $0) } }
-                    }
-                    Section("Libraries") {
-                        ForEach(views) { view in
-                            NavigationLink(value: view) { Label(view.name, systemImage: Self.icon(for: view)) }
+        let jellyfin = model.jellyfin
+        VStack(alignment: .leading, spacing: 14) {
+            if let target = jellyfin.target(for: model.current), target.nowPlaying != nil {
+                NowPlaying(session: target)
+                    .padding(14)
+                    .background(KeySurface(shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
+            }
+            if !jellyfin.resume.isEmpty {
+                row("Continue watching") {
+                    ForEach(jellyfin.resume) { item in
+                        Button {
+                            Haptics.tap()
+                            jellyfin.play(item, resume: true, on: model.current) { model.launch($0) }
+                        } label: {
+                            Card(item: item, title: item.seriesName ?? item.name,
+                                 subtitle: item.type == "Episode" ? item.label : nil, progress: item.progress)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                        .contextMenu {
+                            Button("Play from the beginning", systemImage: "backward.end") {
+                                jellyfin.play(item, resume: false, on: model.current) { model.launch($0) }
+                            }
                         }
                     }
                 }
-                if let error {
-                    Text(error).foregroundStyle(Theme.power)
+            }
+            if !jellyfin.libraries.isEmpty {
+                row("Libraries") {
+                    ForEach(jellyfin.libraries) { library in
+                        NavigationLink(value: JellyfinRoute.library(library)) {
+                            Card(item: library, title: library.name, subtitle: nil, progress: nil)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    }
                 }
             }
-            .navigationTitle(model.jellyfin.server?.name ?? "Jellyfin")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .navigationDestination(for: JellyfinItem.self) { item in
-                if item.type == "Series" { SeriesView(series: item) } else { FolderView(folder: item) }
+            if jellyfin.sessions.count > 1 {
+                SessionPicker()
             }
-            .searchable(text: $query, prompt: "Shows, movies, episodes")
-            .task(id: query) { await search() }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+        }
+        .task(id: jellyfin.server) {
+            await jellyfin.refreshHome()
+            // Keep now playing and the session list current while the remote is on screen.
+            while !Task.isCancelled {
+                await jellyfin.refreshSessions()
+                try? await Task.sleep(for: .seconds(5))
             }
-            .task { await load() }
-            .safeAreaInset(edge: .bottom) { StatusBar() }
-        }
-        #if os(macOS)
-        .frame(minWidth: 360, idealWidth: 400, maxWidth: 480, minHeight: 560)
-        #endif
-    }
-
-    private func load() async {
-        guard let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else { return }
-        do {
-            async let r = api.resume(user: user)
-            async let n = api.nextUp(user: user)
-            async let v = api.views(user: user)
-            (resume, nextUp, views) = try await (r, n, v)
-        } catch {
-            self.error = error.localizedDescription
         }
     }
 
-    private func search() async {
-        let term = query.trimmingCharacters(in: .whitespaces)
-        guard !term.isEmpty, let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else {
-            results = []
-            return
-        }
-        try? await Task.sleep(for: .milliseconds(300))
-        guard !Task.isCancelled else { return }
-        results = (try? await api.search(user: user, term: term)) ?? []
-    }
-
-    private static func icon(for view: JellyfinItem) -> String {
-        switch view.collectionType {
-        case "tvshows": "tv"
-        case "movies": "film"
-        case "music": "music.note"
-        default: "folder"
+    private func row<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .tracking(0.8)
+                .foregroundStyle(Theme.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) { content() }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 4)
+            }
+            .padding(.horizontal, -20)
         }
     }
 }
 
-/// Which Jellyfin app on the network we're controlling, and what it's playing.
-private struct TargetSection: View {
+/// A 16:9 picture with a title under it.
+private struct Card: View {
+    @Environment(AppModel.self) private var model
+    let item: JellyfinItem
+    let title: String
+    let subtitle: String?
+    let progress: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            AsyncImage(url: model.jellyfin.api?.imageURL(item, width: 400, wide: true)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                ZStack {
+                    Color.white.opacity(0.06)
+                    Image(systemName: "film").foregroundStyle(Theme.secondary)
+                }
+            }
+            .frame(width: 168, height: 94)
+            .overlay(alignment: .bottom) {
+                if let progress {
+                    GeometryReader { g in
+                        Capsule().fill(.white.opacity(0.25)).overlay(alignment: .leading) {
+                            Capsule().fill(jellyfinPurple).frame(width: g.size.width * progress)
+                        }
+                    }
+                    .frame(height: 4)
+                    .padding(8)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.label).lineLimit(1)
+                if let subtitle {
+                    Text(subtitle).font(.system(size: 11)).foregroundStyle(Theme.secondary).lineLimit(1)
+                }
+            }
+            .frame(width: 168, alignment: .leading)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// Which Jellyfin app to control when more than one is open.
+private struct SessionPicker: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         let jellyfin = model.jellyfin
         let target = jellyfin.target(for: model.current)
-        Section {
-            if let target {
-                NowPlaying(session: target)
-            } else if jellyfin.sessions.isEmpty {
-                Text("Jellyfin isn't open on any TV. Pick something to play and the app will open Jellyfin on \(model.current?.name ?? "your TV") first.")
-                    .font(.footnote).foregroundStyle(.secondary)
+        Menu {
+            ForEach(jellyfin.sessions) { session in
+                Button(session.title) { jellyfin.choose(session, for: model.current) }
             }
-            if jellyfin.sessions.count > 1 {
-                Picker("Play on", selection: Binding(
-                    get: { target?.id },
-                    set: { id in if let s = jellyfin.sessions.first(where: { $0.id == id }) { jellyfin.choose(s, for: model.current) } }
-                )) {
-                    Text("Choose…").tag(String?.none)
-                    ForEach(jellyfin.sessions) { Text($0.title).tag(Optional($0.id)) }
+        } label: {
+            Label("Jellyfin plays on: \(target?.title ?? "choose…")", systemImage: "play.tv")
+                .font(.footnote.weight(.semibold))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.secondary)
+    }
+}
+
+enum JellyfinRoute: Hashable {
+    case library(JellyfinItem)
+    case series(JellyfinItem)
+}
+
+extension View {
+    func jellyfinDestinations() -> some View {
+        navigationDestination(for: JellyfinRoute.self) { route in
+            switch route {
+            case .library(let item): LibraryGallery(folder: item)
+            case .series(let item): SeriesView(series: item)
+            }
+        }
+    }
+}
+
+// MARK: - Library gallery
+
+private struct LibraryGallery: View {
+    @Environment(AppModel.self) private var model
+    let folder: JellyfinItem
+    @State private var items: [JellyfinItem]?
+    @State private var query = ""
+
+    var body: some View {
+        ScrollView {
+            if let items {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 14)], spacing: 18) {
+                    ForEach(items) { Poster(item: $0) }
                 }
+                .padding(20)
+                if items.isEmpty {
+                    Text(query.isEmpty ? "This library is empty." : "Nothing matches.").foregroundStyle(Theme.secondary)
+                }
+            } else {
+                ProgressView().padding(40)
             }
         }
-        .task {
-            // Keep the now-playing view fresh while the sheet is open.
-            while !Task.isCancelled {
-                await jellyfin.refreshSessions()
-                try? await Task.sleep(for: .seconds(3))
+        .background(Theme.background)
+        .navigationTitle(folder.name)
+        .searchable(text: $query, prompt: "Search \(folder.name)")
+        .task(id: query) {
+            guard let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else { return }
+            let term = query.trimmingCharacters(in: .whitespaces)
+            if !term.isEmpty { try? await Task.sleep(for: .milliseconds(300)) }
+            guard !Task.isCancelled else { return }
+            items = (try? await api.items(user: user, parent: folder.id, search: term.isEmpty ? nil : term)) ?? []
+        }
+    }
+}
+
+/// A 2:3 poster. Shows and folders open; movies play.
+private struct Poster: View {
+    @Environment(AppModel.self) private var model
+    let item: JellyfinItem
+    @State private var asking = false
+
+    var body: some View {
+        if item.isPlayable {
+            Button {
+                if item.resumeTicks != nil { asking = true } else { play(resume: false) }
+            } label: { poster }
+            .buttonStyle(PressScaleStyle())
+            .confirmationDialog(item.name, isPresented: $asking) {
+                Button("Resume") { play(resume: true) }
+                Button("Play from the beginning") { play(resume: false) }
+            }
+        } else {
+            NavigationLink(value: item.type == "Series" ? JellyfinRoute.series(item) : JellyfinRoute.library(item)) { poster }
+                .buttonStyle(PressScaleStyle())
+        }
+    }
+
+    private var poster: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Color.white.opacity(0.06)
+                .aspectRatio(2 / 3, contentMode: .fit)
+                .overlay {
+                    AsyncImage(url: model.jellyfin.api?.imageURL(item, width: 300)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Text(item.name).font(.caption.weight(.semibold)).foregroundStyle(Theme.secondary)
+                            .multilineTextAlignment(.center).padding(6)
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if item.userData?.played == true {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, jellyfinPurple).padding(6)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(item.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.label).lineLimit(1)
+            if let year = item.year {
+                Text(String(year)).font(.system(size: 11)).foregroundStyle(Theme.secondary)
             }
         }
+        .contentShape(Rectangle())
+    }
+
+    private func play(resume: Bool) {
+        Haptics.tap()
+        model.jellyfin.play(item, resume: resume, on: model.current) { model.launch($0) }
     }
 }
 
@@ -282,28 +377,6 @@ private struct NowPlaying: View {
     }
 }
 
-private struct FolderView: View {
-    @Environment(AppModel.self) private var model
-    let folder: JellyfinItem
-    @State private var items: [JellyfinItem]?
-
-    var body: some View {
-        List {
-            if let items {
-                ForEach(items) { ItemRow(item: $0) }
-            } else {
-                ProgressView()
-            }
-        }
-        .navigationTitle(folder.name)
-        .task {
-            guard let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else { return }
-            items = (try? await api.items(user: user, parent: folder.id)) ?? []
-        }
-        .safeAreaInset(edge: .bottom) { StatusBar() }
-    }
-}
-
 private struct SeriesView: View {
     @Environment(AppModel.self) private var model
     let series: JellyfinItem
@@ -325,6 +398,8 @@ private struct SeriesView: View {
             }
         }
         .navigationTitle(series.name)
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
         .task {
             guard let api = model.jellyfin.api, let user = model.jellyfin.server?.userID else { return }
             seasons = (try? await api.seasons(user: user, series: series.id)) ?? []
@@ -336,7 +411,6 @@ private struct SeriesView: View {
             episodes = nil
             episodes = (try? await api.episodes(user: user, series: series.id, season: season)) ?? []
         }
-        .safeAreaInset(edge: .bottom) { StatusBar() }
     }
 }
 
@@ -357,7 +431,7 @@ private struct ItemRow: View {
                 Button("Play from the beginning") { play(resume: false) }
             }
         } else {
-            NavigationLink(value: item) { row }
+            NavigationLink(value: item.type == "Series" ? JellyfinRoute.series(item) : JellyfinRoute.library(item)) { row }
         }
     }
 
@@ -396,7 +470,7 @@ private struct ItemRow: View {
 }
 
 /// Progress and errors for the last play request.
-private struct StatusBar: View {
+struct JellyfinStatusBar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {

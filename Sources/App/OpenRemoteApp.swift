@@ -24,14 +24,18 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var model = model
-        RemoteScreen()
+        NavigationStack {
+            RemoteScreen()
+                .toolbar(.hidden)
+                .jellyfinDestinations()
+        }
+            .safeAreaInset(edge: .bottom) { JellyfinStatusBar() }
             #if os(macOS)
             .frame(minWidth: 380, minHeight: 760)
             #endif
             .sheet(isPresented: $model.showingDevices) { DevicesSheet() }
             .sheet(isPresented: $model.showingKeyboard) { KeyboardSheet() }
             .sheet(isPresented: $model.showingApps) { AppsSheet() }
-            .sheet(isPresented: $model.showingJellyfin) { JellyfinSheet() }
             .sheet(isPresented: pairingPresented) { PairingSheet() }
             .animation(.snappy, value: model.state)
             .onChange(of: scenePhase) { _, phase in

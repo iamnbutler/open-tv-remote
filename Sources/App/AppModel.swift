@@ -14,7 +14,6 @@ final class AppModel: TVDriverDelegate {
     var showingDevices = false
     var showingKeyboard = false
     var showingApps = false
-    var showingJellyfin = false
 
     let discovery = Discovery()
     let jellyfin = JellyfinStore()

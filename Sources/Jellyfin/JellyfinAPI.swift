@@ -109,10 +109,11 @@ struct JellyfinAPI: Sendable {
         return result.items
     }
 
-    func items(user: String, parent: String) async throws -> [JellyfinItem] {
+    func items(user: String, parent: String, search: String? = nil) async throws -> [JellyfinItem] {
         let result: JellyfinItems = try await get("Items", [
             "userId": user, "parentId": parent, "includeItemTypes": "Series,Movie,Video,Folder,BoxSet",
             "sortBy": "SortName", "fields": Self.fields, "limit": "500",
+            "searchTerm": search, "recursive": search == nil ? nil : "true",
         ])
         return result.items
     }
@@ -135,12 +136,17 @@ struct JellyfinAPI: Sendable {
         return result.items
     }
 
-    func imageURL(_ item: JellyfinItem, width: Int) -> URL? {
+    /// `wide` asks for a 16:9 picture: an episode's own still, or a movie's or show's backdrop.
+    func imageURL(_ item: JellyfinItem, width: Int, wide: Bool = false) -> URL? {
         let id: String
-        if item.imageTags?["Primary"] != nil { id = item.id }
+        var type = "Primary"
+        if wide && item.type != "Episode" && item.type != "CollectionFolder" {
+            id = item.id
+            type = "Backdrop"
+        } else if item.imageTags?["Primary"] != nil { id = item.id }
         else if let series = item.seriesID { id = series }
         else { return nil }
-        var c = URLComponents(url: baseURL.appendingPathComponent("Items/\(id)/Images/Primary"), resolvingAgainstBaseURL: false)!
+        var c = URLComponents(url: baseURL.appendingPathComponent("Items/\(id)/Images/\(type)"), resolvingAgainstBaseURL: false)!
         c.queryItems = [URLQueryItem(name: "fillWidth", value: "\(width)"), URLQueryItem(name: "quality", value: "85")]
         return c.url
     }
@@ -230,6 +236,12 @@ struct JellyfinItem: Decodable, Identifiable, Hashable, Sendable {
     }
 
     var isPlayable: Bool { ["Episode", "Movie", "Video", "MusicVideo"].contains(type) }
+    /// How far through it the user is, 0...1, if they've started it.
+    var progress: Double? {
+        guard let position = resumeTicks, let total = runTimeTicks, total > 0 else { return nil }
+        return min(1, Double(position) / Double(total))
+    }
+
     var resumeTicks: Int64? { userData?.playbackPositionTicks.flatMap { $0 > 0 ? $0 : nil } }
 
     /// "S2 · E5 · Title" for episodes, the plain name otherwise.
