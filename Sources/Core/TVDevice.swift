@@ -59,6 +59,14 @@ struct TVDevice: Codable, Identifiable, Hashable, Sendable {
     /// Samsung: Wi-Fi/Ethernet MAC, so we can wake the TV with a Wake-on-LAN packet.
     var macAddress: String?
 
+    /// What another device may know about this TV: pairing is between one device and the TV.
+    var withoutCredentials: TVDevice {
+        var shared = self
+        shared.token = nil
+        shared.isPaired = false
+        return shared
+    }
+
     var hasCredentials: Bool {
         switch brand {
         case .roku: true
@@ -68,6 +76,7 @@ struct TVDevice: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+@MainActor
 enum DeviceStore {
     private static let devicesKey = "devices.v1"
     private static let currentKey = "currentDevice.v1"
@@ -82,6 +91,12 @@ enum DeviceStore {
         if let data = try? JSONEncoder().encode(devices) {
             UserDefaults.standard.set(data, forKey: devicesKey)
         }
+        CloudSettings.set(CloudSettings.encode(devices.map(\.withoutCredentials)), forKey: CloudSettings.devices)
+    }
+
+    /// The TVs saved on all of the user's devices, without pairing credentials.
+    static func loadShared() -> [TVDevice]? {
+        UserDefaults.standard.data(forKey: CloudSettings.devices).flatMap { try? JSONDecoder().decode([TVDevice].self, from: $0) }
     }
 
     static var currentID: String? {

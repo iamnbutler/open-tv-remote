@@ -44,8 +44,45 @@ final class AppModel: TVDriverDelegate {
             return
         }
         #endif
+        NotificationCenter.default.addObserver(forName: CloudSettings.didChange, object: nil, queue: .main) { [weak self] note in
+            let keys = note.userInfo?["keys"] as? [String] ?? []
+            MainActor.assumeIsolated { self?.settingsChanged(keys) }
+        }
+        CloudSettings.start()
         if let current {
             activate(current)
+        }
+    }
+
+    // MARK: Sync
+
+    private func settingsChanged(_ keys: [String]) {
+        if keys.contains(CloudSettings.devices) { adoptSharedDevices() }
+        if keys.contains(CloudSettings.appChoices) { appChoices = Self.loadAppChoices() }
+        jellyfin.settingsChanged(keys)
+    }
+
+    /// Takes the TV list from the user's other devices, keeping this device's pairing for each TV.
+    /// A TV that moved to a new address elsewhere is matched by name, so it stays paired here.
+    private func adoptSharedDevices() {
+        guard let shared = DeviceStore.loadShared() else { return }
+        let mine = devices
+        let previous = current
+        devices = shared.map { tv in
+            guard let local = mine.first(where: { $0.id == tv.id })
+                ?? mine.first(where: { $0.brand == tv.brand && $0.name == tv.name }) else { return tv }
+            var tv = tv
+            tv.token = local.token
+            tv.isPaired = local.isPaired
+            tv.macAddress = tv.macAddress ?? local.macAddress
+            return tv
+        }
+        DeviceStore.save(devices)
+        guard let previous, current == nil else { return }
+        if let moved = devices.first(where: { $0.brand == previous.brand && $0.name == previous.name }) {
+            activate(moved)
+        } else {
+            forget(previous)
         }
     }
 
@@ -200,8 +237,12 @@ final class AppModel: TVDriverDelegate {
     private static let defaultAppIDs: Set<String> = ["youtube", "netflix", "prime", "disney", "appletv", "jellyfin"]
 
     /// Explicit choices only; missing entries follow the defaults without writing them to storage.
-    private var appChoices: [String: Bool] = UserDefaults.standard.dictionary(forKey: "apps.visible.v1") as? [String: Bool] ?? [:] {
-        didSet { UserDefaults.standard.set(appChoices, forKey: "apps.visible.v1") }
+    private var appChoices: [String: Bool] = loadAppChoices() {
+        didSet { CloudSettings.set(appChoices, forKey: CloudSettings.appChoices) }
+    }
+
+    private static func loadAppChoices() -> [String: Bool] {
+        UserDefaults.standard.dictionary(forKey: CloudSettings.appChoices) as? [String: Bool] ?? [:]
     }
 
     func isShown(_ app: TVApp) -> Bool {

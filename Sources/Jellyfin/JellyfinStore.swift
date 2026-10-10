@@ -57,7 +57,7 @@ final class JellyfinStore {
 
     var isEnabled = UserDefaults.standard.bool(forKey: Keys.enabled) {
         didSet {
-            UserDefaults.standard.set(isEnabled, forKey: Keys.enabled)
+            CloudSettings.set(isEnabled, forKey: Keys.enabled)
             if !isEnabled { cancelSignIn() }
         }
     }
@@ -373,6 +373,22 @@ final class JellyfinStore {
 
     func clearStatus() { playStatus = .idle }
 
+    /// Picks up settings changed on the user's other devices.
+    func settingsChanged(_ keys: [String]) {
+        if keys.contains(Keys.enabled) { isEnabled = UserDefaults.standard.bool(forKey: Keys.enabled) }
+        if keys.contains(Keys.pinsKey) { allPins = Keys.loadPins() }
+        if keys.contains(Keys.server) {
+            let previous = server
+            server = Keys.loadServer()
+            if server != previous {
+                sessions = []
+                resume = []
+                libraries = []
+                Task { await refreshHome() }
+            }
+        }
+    }
+
     /// How to open the Jellyfin app on each kind of TV, where it has one.
     static func launchApp(for brand: TVBrand) -> TVApp? {
         switch brand {
@@ -386,19 +402,20 @@ final class JellyfinStore {
 
 // MARK: - Storage
 
+@MainActor
 private enum Keys {
-    static let enabled = "jellyfin.enabled"
-    static let server = "jellyfin.server.v1"
+    static let enabled = CloudSettings.jellyfinEnabled
+    static let server = CloudSettings.jellyfinServer
     static let targetsKey = "jellyfin.targets.v1"
     static let deviceKey = "jellyfin.deviceID"
-    static let pinsKey = "jellyfin.pins.v1"
+    static let pinsKey = CloudSettings.jellyfinPins
 
     static func loadPins() -> [JellyfinStore.Pin] {
         UserDefaults.standard.data(forKey: pinsKey).flatMap { try? JSONDecoder().decode([JellyfinStore.Pin].self, from: $0) } ?? []
     }
 
     static func savePins(_ pins: [JellyfinStore.Pin]) {
-        UserDefaults.standard.set(try? JSONEncoder().encode(pins), forKey: pinsKey)
+        CloudSettings.set(CloudSettings.encode(pins), forKey: pinsKey)
     }
 
     static var deviceID: String {
@@ -413,7 +430,7 @@ private enum Keys {
     }
 
     static func saveServer(_ value: JellyfinStore.Server?) {
-        UserDefaults.standard.set(value.flatMap { try? JSONEncoder().encode($0) }, forKey: server)
+        CloudSettings.set(value.flatMap { CloudSettings.encode($0) }, forKey: server)
     }
 
     /// TV id → Jellyfin device id of the app running on that TV.
@@ -423,27 +440,50 @@ private enum Keys {
     }
 }
 
+/// The sign-in token, kept in iCloud Keychain so the user's other devices are signed in too.
 private enum Keychain {
-    private static func query(_ server: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "com.natebutler.freeremote.jellyfin",
-         kSecAttrAccount as String: server]
+    /// iCloud Keychain needs the data-protection keychain, which unsigned Mac builds can't use.
+    private static var syncs: Bool {
+        #if os(macOS)
+        ClientIdentity.useDataProtectionKeychain
+        #else
+        true
+        #endif
+    }
+
+    private static func query(_ server: String, synced: Bool) -> [String: Any] {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: "com.natebutler.freeremote.jellyfin",
+                                kSecAttrAccount as String: server]
+        guard synced else { return q }
+        var scoped = ClientIdentity.scoped(q)
+        scoped[kSecAttrSynchronizable as String] = true
+        return scoped
     }
 
     static func token(for server: String) -> String? {
-        var q = query(server)
+        if let token = read(query(server, synced: syncs)) { return token }
+        // Saved before tokens synced: move it into iCloud Keychain.
+        guard syncs, let token = read(query(server, synced: false)) else { return nil }
+        setToken(token, for: server)
+        return token
+    }
+
+    static func setToken(_ token: String?, for server: String) {
+        SecItemDelete(query(server, synced: false) as CFDictionary)
+        if syncs { SecItemDelete(query(server, synced: true) as CFDictionary) }
+        guard let token else { return }
+        var q = query(server, synced: syncs)
+        q[kSecValueData as String] = Data(token.utf8)
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        SecItemAdd(q as CFDictionary, nil)
+    }
+
+    private static func read(_ query: [String: Any]) -> String? {
+        var q = query
         q[kSecReturnData as String] = true
         var out: CFTypeRef?
         guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
         return String(data: data, encoding: .utf8)
-    }
-
-    static func setToken(_ token: String?, for server: String) {
-        SecItemDelete(query(server) as CFDictionary)
-        guard let token else { return }
-        var q = query(server)
-        q[kSecValueData as String] = Data(token.utf8)
-        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(q as CFDictionary, nil)
     }
 }
