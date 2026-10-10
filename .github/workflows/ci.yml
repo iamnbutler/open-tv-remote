@@ -38,3 +38,6 @@ jobs:
           xcodebuild -project OpenRemote.xcodeproj -scheme OpenRemote \
             -destination "${{ matrix.destination }}" \
             CODE_SIGNING_ALLOWED=NO build
+      - name: Build dev harness
+        if: matrix.platform == 'macOS'
+        run: CODESIGN_IDENTITY=- Tools/harness/build.sh
