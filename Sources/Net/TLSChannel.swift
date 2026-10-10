@@ -97,8 +97,14 @@ final class TLSChannel {
         guard !closed else { return }
         closed = true
         connection.cancel()
+        // Only the TV's certificate alerts mean it has forgotten us. Other TLS failures (the
+        // connection dropping mid-handshake while the TV wakes, Wi-Fi blips) are transient and
+        // must not throw away a working pairing.
         var tlsRejected = false
-        if case .tls? = error { tlsRejected = true }
+        if case .tls(let status)? = error {
+            tlsRejected = [errSSLPeerBadCert, errSSLPeerUnsupportedCert, errSSLPeerCertRevoked,
+                           errSSLPeerCertExpired, errSSLPeerCertUnknown, errSSLPeerAccessDenied].contains(status)
+        }
         onClose?(error, tlsRejected)
     }
 }

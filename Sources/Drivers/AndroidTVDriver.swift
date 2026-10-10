@@ -1,6 +1,9 @@
 import CryptoKit
 import Foundation
 import Network
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Android TV Remote Service protocol v2 — the same one Google's own TV remote uses.
 /// Works with every Google TV / Android TV (Sony, TCL, Hisense, Philips, Chromecast, Shield…).
@@ -152,7 +155,7 @@ final class AndroidTVDriver: TVDriver {
             self?.sendPairing { m in
                 m.message(10) { r in
                     r.string(1, "atvremote")
-                    r.string(2, Self.clientName)
+                    r.string(2, Self.clientName(for: identity.certificate))
                 }
             }
         }
@@ -310,12 +313,16 @@ final class AndroidTVDriver: TVDriver {
 
     // MARK: Helpers
 
-    private static var clientName: String {
+    /// The TV keeps one pairing per client name: pairing a second client with the same name
+    /// silently invalidates the first. Tag the name with our certificate's fingerprint so every
+    /// install (iPhone, iPad, Mac, dev builds) gets its own slot.
+    static func clientName(for certificate: SecCertificate) -> String {
         #if os(macOS)
-        "Open Remote (Mac)"
+        let kind = "Mac"
         #else
-        "Open Remote (iPhone)"
+        let kind = UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone"
         #endif
+        return "Open Remote (\(kind) \(ClientIdentity.shortID(of: certificate)))"
     }
 
     private static func describe(_ error: NWError?) -> String {

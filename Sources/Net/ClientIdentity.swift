@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Security
 
@@ -158,6 +159,12 @@ enum ClientIdentity {
     }
 
     /// RSA modulus and exponent of a certificate's public key, used in the pairing secret.
+    /// First four hex digits of the certificate's SHA-256, stable for as long as the identity is.
+    static func shortID(of certificate: SecCertificate) -> String {
+        let digest = SHA256.hash(data: SecCertificateCopyData(certificate) as Data)
+        return digest.prefix(2).map { String(format: "%02X", $0) }.joined()
+    }
+
     static func rsaComponents(of certificate: SecCertificate) -> (modulus: [UInt8], exponent: [UInt8])? {
         guard let key = SecCertificateCopyKey(certificate),
               let der = SecKeyCopyExternalRepresentation(key, nil) as Data? else { return nil }
