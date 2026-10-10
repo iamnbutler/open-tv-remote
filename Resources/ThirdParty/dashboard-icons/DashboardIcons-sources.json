@@ -1,0 +1,59 @@
+{
+  "collection": "Dashboard Icons",
+  "revision": "57e939e504eda0ea764098015da93aa666ad6f31",
+  "license": "Apache-2.0",
+  "licenseSource": "https://github.com/homarr-labs/dashboard-icons/blob/57e939e504eda0ea764098015da93aa666ad6f31/LICENSE",
+  "licenseSha256": "e58a8fa57781d1dc7158b333b68c99461031fd2c25dfbd23eac15a8e984cae56",
+  "assets": [
+    {
+      "asset": "app-youtubetv",
+      "source": "https://github.com/homarr-labs/dashboard-icons/blob/57e939e504eda0ea764098015da93aa666ad6f31/svg/youtube-tv.svg",
+      "modified": false,
+      "sourceSha256": "05ff264f03869228cfe8ab994bc74f84ef15e1205489d61b0604a45fd178b045",
+      "bundledSha256": "05ff264f03869228cfe8ab994bc74f84ef15e1205489d61b0604a45fd178b045",
+      "modifications": "None",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        122.88,
+        92.19000000000001
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        123.0,
+        92.25
+      ],
+      "bundledViewBox": [
+        0.0,
+        0.0,
+        122.88,
+        92.19
+      ]
+    },
+    {
+      "asset": "app-pluto",
+      "source": "https://github.com/homarr-labs/dashboard-icons/blob/57e939e504eda0ea764098015da93aa666ad6f31/png/pluto-tv.png",
+      "modified": true,
+      "sourceSha256": "efebf69574aca77f2d405a188382bcc6e0d228573c464cb58271006b7a637117",
+      "bundledSha256": "3fd912db53a7d46e3fab1cba0defe705d3f93e94929fce4bc1078db87216a890",
+      "modifications": "Transparent canvas cropped with 8 px padding; foreground pixels with all RGB channels below 100 set to white for dark tile; alpha and colored accent preserved",
+      "originalDimensions": [
+        2048,
+        2048
+      ],
+      "originalArtworkBounds": [
+        258,
+        835,
+        1532,
+        378
+      ],
+      "bundledCrop": [
+        250,
+        827,
+        1548,
+        394
+      ]
+    }
+  ]
+}

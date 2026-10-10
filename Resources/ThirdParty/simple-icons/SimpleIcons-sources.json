@@ -1,0 +1,36 @@
+{
+  "collection": "Simple Icons",
+  "revision": "b590c7acdbaa23fd7b4eb6749d414725e590f365",
+  "license": "CC0-1.0",
+  "licenseSource": "https://github.com/simple-icons/simple-icons/blob/b590c7acdbaa23fd7b4eb6749d414725e590f365/LICENSE.md",
+  "licenseSha256": "9046848b63a5c92bff14e4accca80bd987e0623b74adf9226ce5198d312b79d5",
+  "assets": [
+    {
+      "asset": "app-tubi",
+      "source": "https://github.com/simple-icons/simple-icons/blob/b590c7acdbaa23fd7b4eb6749d414725e590f365/icons/tubi.svg",
+      "modified": true,
+      "sourceSha256": "676ed4e503226dd4399405e80c99e97119809e5b6d5c31b9c413edf59d8b6b76",
+      "bundledSha256": "483cb8226b5556e5fcddafac7c72d32fbdf6a9fa67e47122674cdfc959ee24b0",
+      "modifications": "SVG viewport cropped; Explicit #ffffff foreground fill; paths unchanged",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        24.0,
+        24.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        8.5546875,
+        24.0,
+        6.890625
+      ],
+      "bundledViewBox": [
+        0.0,
+        8.460938,
+        24.0,
+        7.078125
+      ],
+      "upstreamBrandSource": "https://gdpr.tubi.tv"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+YouTube TV and Pluto TV icons from Dashboard Icons and its contributors.
+https://dashboardicons.com/
+https://github.com/homarr-labs/dashboard-icons
+
+Licensed under the Apache License, Version 2.0.
+The complete license, including its disclaimer of warranties, is in DashboardIcons-LICENSE.txt.
+
+Source revision: 57e939e504eda0ea764098015da93aa666ad6f31
+The Pluto TV image has cropped transparent canvas and a white foreground for dark tiles; its alpha and colored accent are preserved.
+Exact source links, checksums, and per-file modifications are in DashboardIcons-sources.json.
+Brand names and logos are trademarks of their respective owners; no endorsement is implied.

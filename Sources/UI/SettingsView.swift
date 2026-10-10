@@ -61,13 +61,28 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                         Link("View the source on GitHub", destination: URL(string: "https://github.com/iamnbutler/open-tv-remote")!)
                             .font(.footnote.weight(.semibold))
-                        Link("App icons adapted from selfh.st", destination: URL(string: "https://selfh.st/icons/")!)
-                            .font(.footnote)
-                        Link("CC BY 4.0 license", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
-                            .font(.footnote)
                     }
                     .padding(.vertical, 4)
                 }
+
+                Section("App icons") {
+                    HStack {
+                        Link("Adapted from selfh.st", destination: URL(string: "https://selfh.st/icons/")!)
+                        Spacer()
+                        Link("CC BY 4.0", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
+                    }
+                    HStack {
+                        Link("Dashboard Icons", destination: URL(string: "https://dashboardicons.com/")!)
+                        Spacer()
+                        Link("Apache 2.0", destination: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!)
+                    }
+                    HStack {
+                        Link("Simple Icons", destination: URL(string: "https://simpleicons.org/")!)
+                        Spacer()
+                        Link("CC0", destination: URL(string: "https://creativecommons.org/publicdomain/zero/1.0/")!)
+                    }
+                }
+                .font(.footnote)
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")

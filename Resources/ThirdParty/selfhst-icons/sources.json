@@ -289,6 +289,110 @@
         512,
         512
       ]
+    },
+    {
+      "asset": "app-crunchyroll",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/crunchyroll.svg",
+      "modified": true,
+      "sourceSha256": "96bf127b4cee276c5fdd4b4bede7b8a9bcbc3aed6369a4ba52e84a259ea28c0e",
+      "bundledSha256": "0c2873b6c6c9bfd2258a3d6615d8523ab280d871fccc43d64f5aa98825dad603",
+      "modifications": "SVG viewport cropped; paths unchanged",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        3.25,
+        512.0,
+        505.5
+      ],
+      "bundledViewBox": [
+        0.0,
+        1.25,
+        512.0,
+        509.5
+      ]
+    },
+    {
+      "asset": "app-twitch",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/twitch-light.svg",
+      "modified": true,
+      "sourceSha256": "158f3ad0bb5389c76c93bcf368b94eec767d76157c6d30ca05529a01211a54a3",
+      "bundledSha256": "4b82d4e5dea7951ecc547b90aed135cb1a9240947e85f44510cd5433c662b302",
+      "modifications": "SVG viewport cropped; paths unchanged",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        31.25,
+        0.0,
+        449.5,
+        512.0
+      ],
+      "bundledViewBox": [
+        29.25,
+        0.0,
+        453.5,
+        512.0
+      ]
+    },
+    {
+      "asset": "app-jellyfin",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/jellyfin.svg",
+      "modified": false,
+      "sourceSha256": "9bfb8753d983103889a8dc248738bfd056e03f52734e2d6eeb4a5c5925148c10",
+      "bundledSha256": "9bfb8753d983103889a8dc248738bfd056e03f52734e2d6eeb4a5c5925148c10",
+      "modifications": "None",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ]
+    },
+    {
+      "asset": "app-emby",
+      "source": "https://github.com/selfhst/icons/blob/2053b70b283ffed5f2cc1424d1e17d9c554a846d/svg/emby.svg",
+      "modified": false,
+      "sourceSha256": "f7967ae729cf5c94c52164acaecf9ceb470cdf1dbedc17f4798160ba0ebeeab5",
+      "bundledSha256": "f7967ae729cf5c94c52164acaecf9ceb470cdf1dbedc17f4798160ba0ebeeab5",
+      "modifications": "None",
+      "originalViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "originalArtworkBounds": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ],
+      "bundledViewBox": [
+        0.0,
+        0.0,
+        512.0,
+        512.0
+      ]
     }
   ]
 }
