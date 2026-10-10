@@ -334,8 +334,9 @@ struct AppTile: View {
                             .renderingMode(.original)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: 88, maxHeight: 36)
-                            .padding(10)
+                            .frame(maxWidth: 56, maxHeight: 28)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 14)
                             .accessibilityHidden(true)
                     } else {
                         Text(style.name)
@@ -343,7 +344,7 @@ struct AppTile: View {
                             .foregroundStyle(style.foreground)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 24)
                     }
                 } else if let icon = app.iconURL {
                     shape.fill(Theme.keyTop)
