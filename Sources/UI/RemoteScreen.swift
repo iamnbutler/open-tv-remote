@@ -319,6 +319,9 @@ private struct AppRow: View {
         if model.current != nil {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
+                    if model.jellyfin.isReady {
+                        JellyfinTile().frame(width: 108, height: 56)
+                    }
                     ForEach(model.shortcutApps.prefix(8), id: \.app.id) { entry in
                         AppTile(app: entry.app, style: entry.style) { model.launch(entry.app) }
                             .frame(width: 108, height: 56)

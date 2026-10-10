@@ -31,6 +31,7 @@ struct RootView: View {
             .sheet(isPresented: $model.showingDevices) { DevicesSheet() }
             .sheet(isPresented: $model.showingKeyboard) { KeyboardSheet() }
             .sheet(isPresented: $model.showingApps) { AppsSheet() }
+            .sheet(isPresented: $model.showingJellyfin) { JellyfinSheet() }
             .sheet(isPresented: pairingPresented) { PairingSheet() }
             .animation(.snappy, value: model.state)
             .onChange(of: scenePhase) { _, phase in

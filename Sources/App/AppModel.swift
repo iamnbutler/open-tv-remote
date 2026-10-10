@@ -14,8 +14,10 @@ final class AppModel: TVDriverDelegate {
     var showingDevices = false
     var showingKeyboard = false
     var showingApps = false
+    var showingJellyfin = false
 
     let discovery = Discovery()
+    let jellyfin = JellyfinStore()
 
     @ObservationIgnored private var driver: TVDriver?
     @ObservationIgnored private var relocateTask: Task<Void, Never>?

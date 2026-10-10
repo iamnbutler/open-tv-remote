@@ -81,6 +81,8 @@ struct DevicesSheet: View {
                     }
                 }
 
+                JellyfinSettingsSection()
+
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Free and open source", systemImage: "heart.fill")
