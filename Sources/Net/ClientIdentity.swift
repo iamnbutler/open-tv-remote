@@ -17,11 +17,16 @@ enum ClientIdentity {
         }
     }
 
-    /// Overridable so dev tools keep their own key instead of sharing (and prompting for) the app's.
-    /// Still named after the app's original name: changing it would orphan existing pairings.
-    static var commonName = "FreeRemote"
-    private static var label: String { "Free Remote Android TV client (\(commonName))" }
-    private static var keyTag: Data { Data("com.natebutler.freeremote.atv-client-key.\(commonName)".utf8) }
+    /// Which keychain slot holds the identity. Overridable so dev tools keep their own key instead
+    /// of sharing (and prompting for) the app's.
+    static var slot = "FreeRemote"
+    private static var label: String { "Free Remote Android TV client (\(slot))" }
+    private static var keyTag: Data { Data("com.natebutler.freeremote.atv-client-key.\(slot)".utf8) }
+
+    /// Android TVs keep one pairing per certificate subject, so every install needs its own: a
+    /// shared name let each new pairing replace the last. Identities from before this have the
+    /// bare slot name and are replaced, which means pairing once more.
+    private static func isOurs(_ subject: String) -> Bool { subject.hasPrefix("\(slot) ") }
 
     private static var cached: Material?
 
@@ -86,7 +91,7 @@ enum ClientIdentity {
         for identity in identities {
             var cert: SecCertificate?
             guard SecIdentityCopyCertificate(identity, &cert) == errSecSuccess, let cert else { continue }
-            if (SecCertificateCopySubjectSummary(cert) as String?) == commonName {
+            if let subject = SecCertificateCopySubjectSummary(cert) as String?, isOurs(subject) {
                 return Material(identity: identity, certificate: cert)
             }
         }
@@ -110,6 +115,10 @@ enum ClientIdentity {
               let publicDER = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
             throw IdentityError.keychain(error?.takeRetainedValue().localizedDescription ?? "key generation failed")
         }
+
+        var suffix = [UInt8](repeating: 0, count: 4)
+        _ = SecRandomCopyBytes(kSecRandomDefault, suffix.count, &suffix)
+        let commonName = "\(slot) " + suffix.map { String(format: "%02X", $0) }.joined()
 
         let signatureAlgorithm = DER.sequence([DER.oid("1.2.840.113549.1.1.11"), DER.null]) // sha256WithRSAEncryption
         let name = DER.sequence([DER.set([DER.sequence([DER.oid("2.5.4.3"), DER.utf8(commonName)])])])
