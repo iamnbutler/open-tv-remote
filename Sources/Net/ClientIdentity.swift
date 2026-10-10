@@ -48,7 +48,7 @@ enum ClientIdentity {
 
     /// On macOS, prefer the modern data-protection keychain when the build is signed for it,
     /// falling back to the login keychain for unsigned/dev builds.
-    private static let useDataProtectionKeychain: Bool = {
+    static let useDataProtectionKeychain: Bool = {
         #if os(macOS)
         let probe: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -65,7 +65,8 @@ enum ClientIdentity {
         #endif
     }()
 
-    private static func scoped(_ q: [String: Any]) -> [String: Any] {
+    /// Adds the data-protection keychain flag where it applies.
+    static func scoped(_ q: [String: Any]) -> [String: Any] {
         var q = q
         #if os(macOS)
         if useDataProtectionKeychain { q[kSecUseDataProtectionKeychain as String] = true }
