@@ -20,6 +20,10 @@ struct RemoteScreen: View {
                     navRow
                     pad
                         .frame(height: padHeight)
+                        .overlay(alignment: .bottomTrailing) {
+                            // The round D-pad leaves its corners free.
+                            if mode == .dpad { SettingsButton() }
+                        }
                         .padding(.vertical, 4)
                     controls
                 }

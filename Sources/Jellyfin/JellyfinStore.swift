@@ -50,6 +50,7 @@ final class JellyfinStore {
     enum PlayStatus: Equatable {
         case idle
         case openingApp
+        case starting(String)
         case sent(String)
         case failed(String)
     }
@@ -69,6 +70,7 @@ final class JellyfinStore {
     private(set) var signInError: String?
     private(set) var sessions: [JellyfinSession] = []
     private(set) var playStatus: PlayStatus = .idle
+    private var attempt: Task<Void, Never>?
     /// Rows on the remote screen.
     private(set) var resume: [JellyfinItem] = []
     private(set) var libraries: [JellyfinItem] = []
@@ -211,10 +213,15 @@ final class JellyfinStore {
         sessions = (try? await api.sessions(user: server.userID)) ?? sessions
     }
 
-    /// The Jellyfin session that belongs to this TV: the one the user picked before, or the only one.
+    /// The Jellyfin session that belongs to this TV: the one connecting from its address, the one the
+    /// user picked before, or the only one.
     func target(for tv: TVDevice?) -> JellyfinSession? {
-        if let tv, let device = Keys.targets[tv.id], let match = sessions.first(where: { $0.deviceID == device }) {
-            return match
+        if let tv {
+            let here = sessions.filter { $0.isAt(tv.host) }
+            if let match = here.first(where: { $0.nowPlaying != nil }) ?? here.first { return match }
+            if let device = Keys.targets[tv.id], let match = sessions.first(where: { $0.deviceID == device }) {
+                return match
+            }
         }
         return sessions.count == 1 ? sessions[0] : nil
     }
@@ -226,7 +233,7 @@ final class JellyfinStore {
 
     /// Plays an item on the TV's Jellyfin app, opening the app first if it isn't running.
     func play(_ item: JellyfinItem, resume: Bool, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool) {
-        perform(item.name, on: tv, launch: launch) { api, session in
+        perform(item.name, on: tv, launch: launch, playing: { $0.id == item.id }) { api, session in
             try await api.play([item.id], on: session, startTicks: resume ? item.resumeTicks : nil)
         }
     }
@@ -237,7 +244,7 @@ final class JellyfinStore {
         Task {
             guard let next = try? await api.nextUp(user: user, series: series.id) else {
                 // Everything watched (or never started): start from the first episode.
-                perform(series.name, on: tv, launch: launch) { api, session in
+                perform(series.name, on: tv, launch: launch, playing: { $0.seriesID == series.id }) { api, session in
                     try await api.play([series.id], on: session)
                 }
                 return
@@ -247,50 +254,70 @@ final class JellyfinStore {
     }
 
     func shuffle(_ series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool) {
-        perform("\(series.name) on shuffle", on: tv, launch: launch) { api, session in
+        perform("\(series.name) on shuffle", on: tv, launch: launch, playing: { $0.seriesID == series.id }) { api, session in
             try await api.play([series.id], on: session, command: .shuffle)
         }
     }
 
-    /// Finds (or opens) the Jellyfin app on the TV, then runs `command` against its session.
+    /// Runs `command` against the TV's Jellyfin session until the TV reports `playing`.
+    ///
+    /// The app only takes play commands while it's in front, and the server keeps listing it for a
+    /// while after it's backgrounded, so a listed session proves nothing. Opening the app while it's
+    /// playing drops it back to its home screen, so only open it when nothing is playing.
     private func perform(_ name: String, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool,
+                         playing: @escaping (JellyfinItem) -> Bool,
                          command: @escaping (JellyfinAPI, String) async throws -> Void) {
         guard let api else { return }
-        Task {
+        attempt?.cancel()
+        attempt = Task {
             await refreshSessions()
-            var session = target(for: tv)
-            if session == nil {
-                guard let tv, let app = Self.launchApp(for: tv.brand) else {
+            let app = tv.flatMap { Self.launchApp(for: $0.brand) }
+            if target(for: tv)?.nowPlaying == nil {
+                guard let tv, let app else {
                     playStatus = .failed("Open Jellyfin on your TV, then try again.")
                     return
                 }
-                let before = Set(sessions.compactMap(\.deviceID))
                 guard launch(app) else {
                     playStatus = .failed("\(tv.name) isn't paired with this device. Pair it from the remote, or open Jellyfin on the TV yourself.")
                     return
                 }
                 playStatus = .openingApp
-                for _ in 0..<20 where session == nil {
-                    try? await Task.sleep(for: .seconds(1.5))
-                    await refreshSessions()
-                    session = sessions.first { !before.contains($0.deviceID ?? "") } ?? target(for: tv)
-                }
-                guard let session else {
-                    playStatus = .failed("Jellyfin didn't show up on the TV. Make sure it's installed and signed in.")
-                    return
-                }
-                choose(session, for: tv)
-                // Give the app a moment to finish starting before asking it to play.
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(4))
             }
-            guard let session else { return }
-            do {
-                try await command(api, session.id)
-                playStatus = .sent(name)
-                try? await Task.sleep(for: .seconds(5))
-                await refreshHome()
-            } catch {
-                playStatus = .failed(error.localizedDescription)
+            let clock = ContinuousClock()
+            let deadline = clock.now + .seconds(45)
+            var lastSent: ContinuousClock.Instant?
+            var lastError: Error?
+            while clock.now < deadline, !Task.isCancelled {
+                await refreshSessions()
+                if let session = target(for: tv) {
+                    if lastSent != nil, let item = session.nowPlaying, playing(item) {
+                        choose(session, for: tv)
+                        playStatus = .sent(name)
+                        try? await Task.sleep(for: .seconds(5))
+                        await refreshHome()
+                        return
+                    }
+                    if lastSent.map({ clock.now - $0 > .seconds(8) }) ?? true {
+                        do {
+                            try await command(api, session.id)
+                            lastError = nil
+                        } catch {
+                            lastError = error
+                        }
+                        lastSent = clock.now
+                        playStatus = .starting(name)
+                    }
+                }
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+            guard !Task.isCancelled else { return }
+            if let lastError {
+                playStatus = .failed(lastError.localizedDescription)
+            } else if lastSent == nil {
+                playStatus = .failed("Jellyfin didn't show up on the TV. Make sure it's installed and signed in.")
+            } else {
+                playStatus = .failed("Jellyfin on the TV didn't start \(name). Open Jellyfin on the TV, then try again.")
             }
         }
     }

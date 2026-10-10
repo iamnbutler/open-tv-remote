@@ -83,3 +83,27 @@ struct SettingsView: View {
         #endif
     }
 }
+
+/// Opens settings: the Settings window on the Mac, a sheet elsewhere.
+struct SettingsButton: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        #if os(macOS)
+        SettingsLink { icon }
+            .buttonStyle(.plain)
+        #else
+        Button { model.showingSettings = true } label: { icon }
+            .buttonStyle(.plain)
+        #endif
+    }
+
+    private var icon: some View {
+        Image(systemName: "gearshape.fill")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Theme.label)
+            .frame(width: 44, height: 44)
+            .background(KeySurface(shape: Circle()))
+            .accessibilityLabel("Settings")
+    }
+}
