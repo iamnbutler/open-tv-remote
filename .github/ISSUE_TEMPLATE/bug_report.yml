@@ -1,0 +1,47 @@
+name: Bug report
+description: Something doesn't work with your TV.
+labels: [bug]
+body:
+  - type: dropdown
+    id: brand
+    attributes:
+      label: TV type
+      options:
+        - Google TV / Android TV
+        - Roku
+        - Samsung
+        - LG
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: TV model
+      description: Usually in the TV's settings under About, or on a sticker on the back.
+      placeholder: e.g. Sony XR-55A80J
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where are you running the app?
+      multiple: true
+      options:
+        - iPhone
+        - iPad
+        - Mac
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From the App Store or TestFlight.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Include any message the app showed.
+    validations:
+      required: true

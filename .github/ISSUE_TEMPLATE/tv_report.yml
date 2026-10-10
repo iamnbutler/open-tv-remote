@@ -1,0 +1,28 @@
+name: TV compatibility report
+description: Tell us whether the app works with your TV, or ask for a TV that isn't supported.
+labels: [compatibility]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: TV brand and model
+      placeholder: e.g. TCL 55C805
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How well does it work?
+      options:
+        - Everything works
+        - Some things work
+        - It connects but nothing works
+        - It isn't found or won't connect
+        - Not supported (feature request)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which buttons or features don't work? For an unsupported TV, what operating system does it run?
