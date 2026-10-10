@@ -3,12 +3,13 @@ import Foundation
 // Dev harness: drives the real AndroidTVDriver from the command line.
 //   harness <host> pair            → starts pairing; write the TV's code to /tmp/atv-code
 //   harness <host> keys k1,k2,...  → connects with stored pairing and presses keys
+//   harness <host> connect         → connects with stored pairing, presses nothing
 @MainActor
 final class Harness: TVDriverDelegate {
     let driver: AndroidTVDriver
     let keys: [RemoteKey]
     let pairing: Bool
-    static let deviceFile = URL(fileURLWithPath: "/tmp/atv-device.json")
+    static var deviceFile: URL { URL(fileURLWithPath: "/tmp/atv-device-\(ClientIdentity.slot).json") }
 
     init(host: String, pairing: Bool, keys: [RemoteKey]) {
         var device = TVDevice(name: "TV", brand: .androidTV, host: host)
@@ -82,7 +83,9 @@ let args = CommandLine.arguments
 let keyMap: [String: RemoteKey] = ["up": .up, "down": .down, "left": .left, "right": .right, "select": .select,
                                    "home": .home, "back": .back, "volup": .volumeUp, "voldown": .volumeDown, "mute": .mute]
 let keys = args.count > 3 ? args[3].split(separator: ",").compactMap { keyMap[String($0)] } : []
-ClientIdentity.commonName = "FreeRemoteHarness"
+// HARNESS_SLOT picks a separate identity, to act as a second client (e.g. two installs pairing).
+let slot = ProcessInfo.processInfo.environment["HARNESS_SLOT"].map { "FreeRemoteHarness-\($0)" } ?? "FreeRemoteHarness"
+ClientIdentity.slot = slot
 MainActor.assumeIsolated {
     let harness = Harness(host: args[1], pairing: args[2] == "pair", keys: keys)
     harness.start()

@@ -336,9 +336,8 @@ final class AndroidTVDriver: TVDriver {
 
     // MARK: Helpers
 
-    /// The TV keeps one pairing per client name: pairing a second client with the same name
-    /// silently invalidates the first. Tag the name with our certificate's fingerprint so every
-    /// install (iPhone, iPad, Mac, dev builds) gets its own slot.
+    /// Shown on the TV while pairing. Tagged with the certificate's fingerprint so people can tell
+    /// their devices apart. (What keeps pairings separate is the certificate; see ClientIdentity.)
     static func clientName(for certificate: SecCertificate) -> String {
         #if os(macOS)
         let kind = "Mac"
