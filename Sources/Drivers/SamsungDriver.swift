@@ -14,6 +14,7 @@ final class SamsungDriver: TVDriver {
     private var playing = true
     /// Keys pressed while (re)connecting, sent once the TV lets us in.
     private var pendingKeys: [String] = []
+    private var pendingLaunch: TVApp?
     private var appsContinuation: CheckedContinuation<[TVApp]?, Never>?
     private var appsRequest = 0
     /// Reconnect attempts left after sending a Wake-on-LAN packet.
@@ -38,6 +39,7 @@ final class SamsungDriver: TVDriver {
         socket?.close()
         socket = nil
         pendingKeys = []
+        pendingLaunch = nil
         wakeAttempts = 0
         appsContinuation?.resume(returning: nil)
         appsContinuation = nil
@@ -90,6 +92,10 @@ final class SamsungDriver: TVDriver {
             let queued = pendingKeys
             pendingKeys = []
             queued.forEach(sendKey)
+            if let app = pendingLaunch {
+                pendingLaunch = nil
+                launch(app)
+            }
         case "ms.channel.unauthorized":
             device.token = nil
             delegate?.driver(self, didUpdateDevice: device)
@@ -229,7 +235,12 @@ final class SamsungDriver: TVDriver {
     }
 
     func launch(_ app: TVApp) {
-        guard state == .connected else { return }
+        guard state == .connected else {
+            guard device.token != nil else { return }
+            pendingLaunch = app
+            if socket == nil { open(prompting: false) }
+            return
+        }
         socket?.send(json: [
             "method": "ms.channel.emit",
             "params": [

@@ -225,14 +225,14 @@ final class JellyfinStore {
     }
 
     /// Plays an item on the TV's Jellyfin app, opening the app first if it isn't running.
-    func play(_ item: JellyfinItem, resume: Bool, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+    func play(_ item: JellyfinItem, resume: Bool, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool) {
         perform(item.name, on: tv, launch: launch) { api, session in
             try await api.play([item.id], on: session, startTicks: resume ? item.resumeTicks : nil)
         }
     }
 
     /// Plays the next unwatched episode of a series, resuming it if it was started.
-    func playNext(in series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+    func playNext(in series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool) {
         guard let api, let user = server?.userID else { return }
         Task {
             guard let next = try? await api.nextUp(user: user, series: series.id) else {
@@ -246,14 +246,14 @@ final class JellyfinStore {
         }
     }
 
-    func shuffle(_ series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Void) {
+    func shuffle(_ series: JellyfinItem, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool) {
         perform("\(series.name) on shuffle", on: tv, launch: launch) { api, session in
             try await api.play([series.id], on: session, command: .shuffle)
         }
     }
 
     /// Finds (or opens) the Jellyfin app on the TV, then runs `command` against its session.
-    private func perform(_ name: String, on tv: TVDevice?, launch: @escaping (TVApp) -> Void,
+    private func perform(_ name: String, on tv: TVDevice?, launch: @escaping (TVApp) -> Bool,
                          command: @escaping (JellyfinAPI, String) async throws -> Void) {
         guard let api else { return }
         Task {
@@ -265,8 +265,11 @@ final class JellyfinStore {
                     return
                 }
                 let before = Set(sessions.compactMap(\.deviceID))
+                guard launch(app) else {
+                    playStatus = .failed("\(tv.name) isn't paired with this device. Pair it from the remote, or open Jellyfin on the TV yourself.")
+                    return
+                }
                 playStatus = .openingApp
-                launch(app)
                 for _ in 0..<20 where session == nil {
                     try? await Task.sleep(for: .seconds(1.5))
                     await refreshSessions()

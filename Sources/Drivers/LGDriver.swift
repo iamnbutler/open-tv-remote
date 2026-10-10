@@ -18,6 +18,7 @@ final class LGDriver: TVDriver {
     private var playing = true
     /// Presses made while (re)connecting or before the pointer socket is up.
     private var pendingKeys: [RemoteKey] = []
+    private var pendingLaunch: TVApp?
     private var pendingButtons: [String] = []
     private var requestingPointer = false
 
@@ -42,6 +43,7 @@ final class LGDriver: TVDriver {
         socket = nil
         pointer = nil
         callbacks = [:]
+        pendingLaunch = nil
         pendingKeys = []
         pendingButtons = []
         requestingPointer = false
@@ -123,6 +125,10 @@ final class LGDriver: TVDriver {
             let queued = pendingKeys
             pendingKeys = []
             queued.forEach(send)
+            if let app = pendingLaunch {
+                pendingLaunch = nil
+                launch(app)
+            }
             return true
         case "error":
             if device.token != nil {
@@ -204,6 +210,12 @@ final class LGDriver: TVDriver {
     }
 
     func launch(_ app: TVApp) {
+        guard state == .connected else {
+            guard device.token != nil else { return }
+            pendingLaunch = app
+            if socket == nil { open(secure: true, prompting: false) }
+            return
+        }
         request("ssap://system.launcher/launch", ["id": app.launchID])
     }
 

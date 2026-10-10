@@ -175,7 +175,13 @@ final class AppModel: TVDriverDelegate {
 
     func sendText(_ text: String) { driver?.sendText(text) }
 
-    func launch(_ app: TVApp) { driver?.launch(app) }
+    /// Returns false when there's no paired TV to send it to.
+    @discardableResult
+    func launch(_ app: TVApp) -> Bool {
+        guard let driver, current?.hasCredentials == true else { return false }
+        driver.launch(app)
+        return true
+    }
 
     /// Shortcuts for the remote's app row: installed apps when the TV can list them, else the catalog.
     var shortcutApps: [(app: TVApp, style: CatalogApp?)] {

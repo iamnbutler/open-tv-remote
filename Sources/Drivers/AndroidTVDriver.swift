@@ -22,6 +22,8 @@ final class AndroidTVDriver: TVDriver {
     private var remote: TLSChannel?
     private var pairing: TLSChannel?
     private var pendingKeys: [RemoteKey] = []
+    /// An app launch requested while (re)connecting; the TV drops idle sessions, so this is common.
+    private var pendingLaunch: TVApp?
     /// Package name of the app in the foreground, as reported by the TV.
     private(set) var currentApp: String?
     private var imeCounter = 0
@@ -49,6 +51,7 @@ final class AndroidTVDriver: TVDriver {
 
     func disconnect() {
         pendingKeys = []
+        pendingLaunch = nil
         remote?.onClose = nil
         remote?.cancel()
         remote = nil
@@ -133,6 +136,10 @@ final class AndroidTVDriver: TVDriver {
         let queued = pendingKeys
         pendingKeys = []
         queued.forEach(send)
+        if let app = pendingLaunch {
+            pendingLaunch = nil
+            launch(app)
+        }
     }
 
     // MARK: Pairing
@@ -303,7 +310,13 @@ final class AndroidTVDriver: TVDriver {
     }
 
     func launch(_ app: TVApp) {
-        guard state == .connected else { return }
+        guard state == .connected else {
+            if device.isPaired {
+                pendingLaunch = app
+                openRemote()
+            }
+            return
+        }
         var m = ProtoWriter()
         m.message(90) { $0.string(1, app.launchID) }
         remote?.send(m)
