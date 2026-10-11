@@ -35,8 +35,8 @@
 
 ## Docs
 
-- Keep `README.md` short: what this is, how to build it, and links to the other top-level files and the wiki.
-- User help (setup and troubleshooting per TV) lives in the GitHub wiki. Contributor and policy docs are the standard top-level files (`CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `PRIVACY.md`).
+- Keep `README.md` short: what this is, how to build it, and links to the other top-level files.
+- Contributor, help and policy docs are the standard top-level files (`CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `PRIVACY.md`). There is no wiki or website.
 - Never restate the code: no copies of ports, protocol details, key maps, file layouts or settings. Link to the source instead; copies drift.
 - A rule about a specific piece of code belongs in a lane note on that code, not in a doc.
 - No plans, design notes or "what we did" write-ups. Plans live in the issue or pull request; git keeps the history.

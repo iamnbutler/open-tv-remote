@@ -4,7 +4,7 @@ A free TV remote for iPhone, iPad and Mac. No subscriptions, ads, tracking or ac
 
 Works with Google TV and Android TV (Sony, TCL, Hisense, Philips, Chromecast, Shield…), Roku, Samsung (Tizen) and LG (webOS).
 
-- **Using the app:** setup and troubleshooting for each TV are in the [wiki](https://github.com/iamnbutler/open-tv-remote/wiki). Questions go in [SUPPORT.md](SUPPORT.md).
+- **Help:** see [SUPPORT.md](SUPPORT.md).
 - **Privacy:** the app collects nothing. See [PRIVACY.md](PRIVACY.md).
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md).
 
