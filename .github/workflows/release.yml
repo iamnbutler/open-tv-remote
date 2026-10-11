@@ -1,0 +1,57 @@
+name: Release
+
+# Publishing a GitHub release tagged vX.Y.Z uploads that version to TestFlight.
+# Running it by hand uploads whatever the chosen ref has, without the version check.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: TestFlight (${{ matrix.platform }})
+    runs-on: macos-latest
+    timeout-minutes: 45
+    environment: testflight
+    strategy:
+      fail-fast: false
+      # One at a time: App Store Connect hands out build numbers on upload.
+      max-parallel: 1
+      matrix:
+        platform: [iOS, macOS]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the tag matches the version
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(sed -nE 's/^ *MARKETING_VERSION: "(.*)"/\1/p' project.yml)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Release tag $TAG doesn't match MARKETING_VERSION $version in project.yml"
+            exit 1
+          fi
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Write the App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Archive and upload
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: Tools/release.sh ${{ matrix.platform }}
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"

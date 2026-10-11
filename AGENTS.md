@@ -14,8 +14,18 @@
 
 - `main` is protected: work in a lane (`lane new <name>`), land with `lane push`, open a pull request, and let CI pass before merging.
 - Commits: `type(target): description`. Targets are folder names: `app`, `ui`, `core`, `net`, `drivers`, `discovery`, `tools`, `resources`, `repo`.
+- Pull request titles use the same format: the title becomes the squash commit and the release notes, so `gh pr create --fill` on a branch name isn't enough.
 - `xcodegen generate` after adding, moving or deleting a source file; the Xcode project is generated and not checked in.
 - Before pushing, build both platforms the way CI does (`.github/workflows/ci.yml`).
+
+## Releases
+
+- Versions are semver, set by `MARKETING_VERSION` in `project.yml`. Build numbers are assigned on upload.
+  - Major: drops support for something people use (a TV brand, an OS version) or changes saved settings in a way that loses them.
+  - Minor: anything new people can see or use.
+  - Patch: fixes only.
+- To release: open a pull request that bumps the version (`chore(repo): release X.Y.Z`), merge it, then `gh release create vX.Y.Z --target main --generate-notes`. Publishing the release runs `.github/workflows/release.yml`, which uploads both platforms to TestFlight and fails if the tag and version disagree.
+- Never reuse a version that has been uploaded; fix forward with a patch release.
 
 ## Rules
 
