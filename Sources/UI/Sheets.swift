@@ -114,15 +114,11 @@ struct KeyboardSheet: View {
                     .autocorrectionDisabled()
                     .submitLabel(.send)
                     .onSubmit(send)
-                    .onChange(of: text) { old, new in
-                        if model.typesLive { model.editText(from: old, to: new) }
-                    }
                     .padding(.horizontal, 14)
                     .frame(height: 48)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.well))
                 KeyCap(repeats: true, enabled: model.supports(.backspace), accessibilityLabel: "Delete on TV") {
-                    // While typing live, delete here so this field and the TV's stay the same.
-                    if model.typesLive, !text.isEmpty { text.removeLast() } else { model.press(.backspace) }
+                    model.press(.backspace)
                 } label: {
                     Image(systemName: "delete.left").font(.system(size: 17, weight: .semibold))
                 }
@@ -133,8 +129,8 @@ struct KeyboardSheet: View {
                         .background(Circle().fill(Theme.accent))
                 }
                 .buttonStyle(PressScaleStyle())
-                .disabled(text.isEmpty && !model.typesLive)
-                .accessibilityLabel(model.typesLive ? "Enter" : "Send text")
+                .disabled(text.isEmpty)
+                .accessibilityLabel("Send text")
             }
             Text("Select a search box on your TV first, then type here.")
                 .font(.footnote)
@@ -152,14 +148,10 @@ struct KeyboardSheet: View {
         #endif
     }
 
-    /// Finishes typing: the TV already has the text when it types live, so just press Enter there.
+    /// Sends the whole text at once, then gets out of the way so the TV's search can be navigated.
     private func send() {
-        if model.typesLive {
-            model.press(.enter)
-        } else {
-            guard !text.isEmpty else { return }
-            model.sendText(text)
-        }
+        guard !text.isEmpty else { return }
+        model.sendText(text)
         dismiss()
     }
 }
