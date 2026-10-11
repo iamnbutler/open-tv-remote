@@ -212,10 +212,6 @@ final class AppModel: TVDriverDelegate {
 
     func sendText(_ text: String) { driver?.sendText(text) }
 
-    var typesLive: Bool { driver?.typesLive ?? false }
-
-    func editText(from old: String, to new: String) { driver?.editText(from: old, to: new) }
-
     /// Returns false when there's no paired TV to send it to.
     @discardableResult
     func launch(_ app: TVApp) -> Bool {

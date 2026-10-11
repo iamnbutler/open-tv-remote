@@ -56,14 +56,6 @@ final class RokuDriver: TVDriver {
         }
     }
 
-    var typesLive: Bool { true }
-
-    func editText(from old: String, to new: String) {
-        let kept = old.commonPrefixCount(with: new)
-        for _ in 0..<(old.count - kept) { enqueue("keypress/Backspace") }
-        sendText(String(new.dropFirst(kept)))
-    }
-
     func launch(_ app: TVApp) {
         enqueue("launch/\(app.launchID)")
     }

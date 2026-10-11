@@ -291,17 +291,7 @@ final class AndroidTVDriver: TVDriver {
     }
 
     func sendText(_ text: String) {
-        guard !text.isEmpty else { return }
-        setField(text)
-    }
-
-    var typesLive: Bool { true }
-
-    func editText(from old: String, to new: String) { setField(new) }
-
-    /// The TV replaces its focused field with `text`: an IME edit carries the whole value, not a change.
-    private func setField(_ text: String) {
-        guard state == .connected else { return }
+        guard !text.isEmpty, state == .connected else { return }
         let cursor = text.count - 1
         var m = ProtoWriter()
         m.message(21) { b in
