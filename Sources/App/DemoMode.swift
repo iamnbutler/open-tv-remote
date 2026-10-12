@@ -2,7 +2,7 @@
 import Foundation
 
 /// Debug-only fake TV for App Store screenshots and UI work without touching a real TV.
-/// Launch with `-demo` (optionally `-padMode touchpad|keypad`, `-demoSheet apps|devices|keyboard|settings`).
+/// Launch with `-demo` (optionally `-padMode keyboard|keypad`, `-demoSheet apps|devices|keyboard|settings`).
 @MainActor
 final class DemoDriver: TVDriver {
     let device: TVDevice

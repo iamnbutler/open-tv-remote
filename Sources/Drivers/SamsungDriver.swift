@@ -226,6 +226,10 @@ final class SamsungDriver: TVDriver {
         }
     }
 
+    /// Unverified whether SendInputString appends or replaces, and backspace maps to KEY_RETURN
+    /// (Back), so the keyboard pad holds the text and sends it all on Return.
+    var typesLive: Bool { false }
+
     func sendText(_ text: String) {
         guard state == .connected else { return }
         socket?.send(json: [

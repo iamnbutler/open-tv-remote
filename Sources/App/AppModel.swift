@@ -212,6 +212,41 @@ final class AppModel: TVDriverDelegate {
 
     func sendText(_ text: String) { driver?.sendText(text) }
 
+    // MARK: Keyboard pad
+
+    /// What's been typed on the keyboard pad since the last Return, for clear and for TVs that don't type live.
+    var typed = ""
+
+    var typesLive: Bool { driver?.typesLive ?? true }
+
+    /// Each character goes to the TV as it's typed, where the TV appends what it's sent.
+    func type(_ text: String) {
+        typed += text
+        if typesLive { sendText(text) }
+    }
+
+    func typeDelete() {
+        if !typed.isEmpty { typed.removeLast() }
+        if typesLive { press(.backspace) }
+    }
+
+    /// Deletes what's been typed since the last Return.
+    func typeClear() {
+        if typesLive {
+            for _ in typed { press(.backspace) }
+        }
+        typed = ""
+    }
+
+    func typeReturn() {
+        if typesLive {
+            press(.enter)
+        } else if !typed.isEmpty {
+            sendText(typed)
+        }
+        typed = ""
+    }
+
     /// Returns false when there's no paired TV to send it to.
     @discardableResult
     func launch(_ app: TVApp) -> Bool {
