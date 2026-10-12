@@ -56,7 +56,13 @@ protocol TVDriver: AnyObject {
     func supports(_ key: RemoteKey) -> Bool
     func send(_ key: RemoteKey)
     func sendText(_ text: String)
+    /// Whether text sent a piece at a time is appended on the TV, so the keyboard pad can type live.
+    var typesLive: Bool { get }
     func launch(_ app: TVApp)
     /// Apps installed on the TV, or nil if the protocol can't list them.
     func installedApps() async -> [TVApp]?
+}
+
+extension TVDriver {
+    var typesLive: Bool { true }
 }

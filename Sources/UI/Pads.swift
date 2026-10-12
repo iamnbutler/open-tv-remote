@@ -1,13 +1,13 @@
 import SwiftUI
 
 enum PadMode: String, CaseIterable, Identifiable {
-    case dpad, touchpad, keypad
+    case dpad, keyboard, keypad
     var id: String { rawValue }
 
     var symbol: String {
         switch self {
         case .dpad: "dpad.fill"
-        case .touchpad: "hand.point.up.left.fill"
+        case .keyboard: "keyboard.fill"
         case .keypad: "circle.grid.3x3.fill"
         }
     }
@@ -15,7 +15,7 @@ enum PadMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .dpad: "Directional pad"
-        case .touchpad: "Touchpad"
+        case .keyboard: "Keyboard"
         case .keypad: "Number pad"
         }
     }
@@ -97,93 +97,113 @@ struct DPadView: View {
     }
 }
 
-// MARK: - Touchpad
+// MARK: - Keyboard
 
-struct TouchpadView: View {
+struct KeyboardPadView: View {
     @Environment(AppModel.self) private var model
-    @State private var touch: CGPoint?
-    @State private var anchor: CGPoint = .zero
-    @State private var moved = false
-    @GestureState private var isTouching = false
+    @State private var shifted = false
+    @State private var symbols = false
 
-    private let step: CGFloat = 36
+    // The last row of each layer sits between shift (or a spacer) and delete.
+    private static let letters = [
+        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+    ] + ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map { $0.map(String.init) }
+    private static let others = [
+        ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""],
+        ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
+        ["_", "\\", "|", "~", "<", ">", "€", "£", "•"],
+        [".", ",", "?", "!", "'", "`", "¥"],
+    ]
+    private let gap: CGFloat = 6
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        ZStack {
-            shape.fill(Theme.well)
-            Canvas { ctx, size in
-                let spacing: CGFloat = 22
-                for x in stride(from: spacing / 2, to: size.width, by: spacing) {
-                    for y in stride(from: spacing / 2, to: size.height, by: spacing) {
-                        ctx.fill(Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2)), with: .color(.white.opacity(0.07)))
+        VStack(spacing: 10) {
+            controls
+            GeometryReader { geo in
+                let key = (geo.size.width - gap * 9) / 10
+                // Shift and delete take up the space of the two keys row three is missing.
+                let wide = key * 1.5 + gap / 2
+                let rows = symbols ? Self.others : Self.letters
+                VStack(spacing: gap) {
+                    ForEach(0..<3) { i in
+                        HStack(spacing: gap) { characters(rows[i], width: key) }
+                    }
+                    HStack(spacing: gap) {
+                        if symbols {
+                            Color.clear.frame(width: wide)
+                        } else {
+                            special(shifted ? "shift.fill" : "shift", label: "Shift", width: wide) { shifted.toggle() }
+                        }
+                        characters(rows[3], width: key)
+                        KeyCap(shape: keyShape, repeats: true, accessibilityLabel: "Delete") { model.typeDelete() } label: {
+                            Image(systemName: "delete.left").font(.system(size: 16, weight: .semibold))
+                        }
+                        .frame(width: wide)
+                    }
+                    HStack(spacing: gap) {
+                        KeyCap(shape: keyShape, accessibilityLabel: symbols ? "Letters" : "Numbers and symbols") {
+                            symbols.toggle()
+                        } label: {
+                            Text(symbols ? "ABC" : "123").font(.system(size: 15, weight: .semibold, design: .rounded))
+                        }
+                        .frame(width: wide)
+                        KeyCap(shape: keyShape, accessibilityLabel: "Space") { model.type(" ") } label: {
+                            Text("space").font(.system(size: 15, weight: .medium, design: .rounded)).foregroundStyle(Theme.secondary)
+                        }
                     }
                 }
-            }
-            .clipShape(shape)
-
-            VStack(spacing: 6) {
-                Text("Swipe to move")
-                Text("Tap to select")
-            }
-            .font(.system(size: 15, weight: .medium, design: .rounded))
-            .foregroundStyle(Theme.secondary)
-            .opacity(touch == nil ? 1 : 0.25)
-
-            if let touch {
-                Circle()
-                    .fill(RadialGradient(colors: [Theme.accent.opacity(0.55), Theme.accent.opacity(0)], center: .center, startRadius: 0, endRadius: 46))
-                    .frame(width: 92, height: 92)
-                    .position(touch)
-                    .allowsHitTesting(false)
+                .frame(maxHeight: 5 * 64 + 4 * gap)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .overlay(shape.strokeBorder(.white.opacity(0.06), lineWidth: 1))
-        .contentShape(shape)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .updating($isTouching) { _, state, _ in state = true }
-                .onChanged { v in
-                    if touch == nil {
-                        anchor = v.startLocation
-                        moved = false
-                    }
-                    touch = v.location
-                    let dx = v.location.x - anchor.x
-                    let dy = v.location.y - anchor.y
-                    if abs(dx) >= step, abs(dx) > abs(dy) {
-                        emit(dx > 0 ? .right : .left)
-                        anchor = CGPoint(x: anchor.x + (dx > 0 ? step : -step), y: v.location.y)
-                    } else if abs(dy) >= step {
-                        emit(dy > 0 ? .down : .up)
-                        anchor = CGPoint(x: v.location.x, y: anchor.y + (dy > 0 ? step : -step))
-                    }
+        .onDisappear { model.typed = "" }
+    }
+
+    /// A small D-pad for moving through results, with clear, delete and Return beside it.
+    private var controls: some View {
+        HStack(spacing: 20) {
+            KeyCap(shape: keyShape, accessibilityLabel: "Clear") { model.typeClear() } label: {
+                Text("Clear").font(.system(size: 15, weight: .semibold, design: .rounded))
+            }
+            .frame(height: 52)
+            // Lines up with the delete key opposite.
+            .frame(maxWidth: .infinity, maxHeight: 52 * 2 + 10, alignment: .top)
+            DPadView().frame(width: 150, height: 150)
+            VStack(spacing: 10) {
+                KeyCap(shape: keyShape, repeats: true, accessibilityLabel: "Delete") { model.typeDelete() } label: {
+                    Image(systemName: "delete.left").font(.system(size: 16, weight: .semibold))
                 }
-                .onEnded { v in
-                    if !moved, hypot(v.translation.width, v.translation.height) < 12 {
-                        Haptics.tap()
-                        model.press(.select)
-                    }
-                    withAnimation(.easeOut(duration: 0.2)) { touch = nil }
+                .frame(height: 52)
+                KeyCap(shape: keyShape, accessibilityLabel: "Return") { model.typeReturn() } label: {
+                    Image(systemName: "return").font(.system(size: 16, weight: .semibold))
                 }
-        )
-        .onChange(of: isTouching) { _, touching in
-            // A system-cancelled touch never reaches onEnded; clear it so the next swipe starts fresh.
-            if !touching { withAnimation(.easeOut(duration: 0.2)) { touch = nil } }
+                .frame(height: 52)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .accessibilityElement()
-        .accessibilityLabel("Touchpad")
-        .accessibilityHint("Swipe to move, double tap to select")
-        .accessibilityAction { model.press(.select) }
-        .accessibilityAdjustableAction { direction in
-            model.press(direction == .increment ? .up : .down)
+        .frame(height: 150)
+    }
+
+    private var keyShape: RoundedRectangle { RoundedRectangle(cornerRadius: 8, style: .continuous) }
+
+    private func characters(_ row: [String], width: CGFloat) -> some View {
+        ForEach(row, id: \.self) { c in
+            let text = shifted && !symbols ? c.uppercased() : c
+            KeyCap(shape: keyShape, accessibilityLabel: text) {
+                model.type(text)
+                shifted = false
+            } label: {
+                Text(text).font(.system(size: 19, weight: .medium, design: .rounded))
+            }
+            .frame(width: width)
         }
     }
 
-    private func emit(_ key: RemoteKey) {
-        moved = true
-        Haptics.tick()
-        model.press(key)
+    private func special(_ symbol: String, label: String, width: CGFloat, action: @escaping () -> Void) -> some View {
+        KeyCap(shape: keyShape, accessibilityLabel: label, action: action) {
+            Image(systemName: symbol).font(.system(size: 16, weight: .semibold))
+        }
+        .frame(width: width)
     }
 }
 

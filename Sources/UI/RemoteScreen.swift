@@ -12,7 +12,10 @@ struct RemoteScreen: View {
             let compact = geo.size.height < 760
             let spacing: CGFloat = compact ? 10 : 18
             let fixed: CGFloat = 48 + 54 + 192 + spacing * 4 + 28 + PageSwitcher.height
-            let padHeight = min(340, max(170, geo.size.height - fixed - 8))
+            // The keyboard has too many keys to share the screen, so it takes the controls' space too.
+            let padHeight = mode == .keyboard
+                ? max(300, geo.size.height - (fixed - 192 - spacing) - 8)
+                : min(340, max(170, geo.size.height - fixed - 8))
             ScrollView {
                 VStack(spacing: spacing) {
                     TopBar()
@@ -25,7 +28,7 @@ struct RemoteScreen: View {
                             if mode == .dpad { SettingsButton() }
                         }
                         .padding(.vertical, 4)
-                    controls
+                    if mode != .keyboard { controls }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
@@ -57,7 +60,7 @@ struct RemoteScreen: View {
     @ViewBuilder private var pad: some View {
         switch mode {
         case .dpad: DPadView()
-        case .touchpad: TouchpadView()
+        case .keyboard: KeyboardPadView()
         case .keypad: KeypadView()
         }
     }
@@ -90,6 +93,7 @@ struct RemoteScreen: View {
 
     /// Hardware keyboard control (Mac, or iPad with a keyboard).
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        if mode == .keyboard, let result = typeKey(press) { return result }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
         case .downArrow: .down
@@ -116,6 +120,24 @@ struct RemoteScreen: View {
         }
         guard let key else { return .ignored }
         model.press(key)
+        return .handled
+    }
+
+    /// With the keyboard pad showing, typing goes to the TV instead of triggering shortcuts.
+    private func typeKey(_ press: KeyPress) -> KeyPress.Result? {
+        guard press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return nil }
+        switch press.key {
+        case .return:
+            model.typeReturn()
+        case .delete:
+            model.typeDelete()
+        case .upArrow, .downArrow, .leftArrow, .rightArrow, .escape:
+            return nil
+        default:
+            guard let c = press.characters.first, press.characters.count == 1, !c.isNewline,
+                  c.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return nil }
+            model.type(press.characters)
+        }
         return .handled
     }
 }
