@@ -16,7 +16,7 @@ struct RemoteScreen: View {
             TopBar(showsPower: model.remoteControlMode == .standard)
             StatusBanner()
             switch model.remoteControlMode {
-            case .standard, .keyboard, .keypad: standardControls
+            case .standard, .keyboard, .keypad: standardMode
             case .eyesFree: JoystickScreen()
             }
         }
@@ -32,16 +32,19 @@ struct RemoteScreen: View {
         .onAppear { focused = true }
     }
 
+    private var standardMode: some View {
+        RemoteModeLayout { navRow } controls: { standardControls }
+    }
+
     private var standardControls: some View {
         GeometryReader { geo in
             let spacing: CGFloat = geo.size.height < 620 ? 10 : 18
-            let fixed: CGFloat = 54 + 192 + spacing * 3 + 28
+            let fixed: CGFloat = 192 + spacing * 2 + 28
             let padHeight = mode == .keyboard
                 ? max(300, geo.size.height - (fixed - 192 - spacing))
                 : min(340, max(170, geo.size.height - fixed))
             ScrollView {
                 VStack(spacing: spacing) {
-                    navRow
                     pad
                         .frame(height: padHeight)
                         .overlay(alignment: .bottomTrailing) {

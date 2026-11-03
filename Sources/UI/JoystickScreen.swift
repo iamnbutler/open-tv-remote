@@ -61,27 +61,30 @@ private struct JoystickControls: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        RemoteModeLayout {
             RemoteNavigationRow(selection: $mode, modes: modes, enabled: enabled,
                                 back: { press(.back) }, home: { press(.home) })
-            VStack(spacing: 5) {
-                Text(enabled ? "Touch anywhere. Drag to move." : "Connect to a TV first.")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                Text(enabled ? "Tap for OK · Hold a direction to repeat" : "Choose or connect to a TV above.")
-                    .font(.system(size: 13)).foregroundStyle(Theme.secondary)
+        } controls: {
+            VStack(spacing: 16) {
+                VStack(spacing: 5) {
+                    Text(enabled ? "Touch anywhere. Drag to move." : "Connect to a TV first.")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    Text(enabled ? "Tap for OK · Hold a direction to repeat" : "Choose or connect to a TV above.")
+                        .font(.system(size: 13)).foregroundStyle(Theme.secondary)
+                }
+                surface.frame(minHeight: 160)
+                if let inputLog {
+                    Text(inputLog).font(.caption.monospaced()).accessibilityIdentifier("eyesFreeInputLog")
+                }
+                Button { press(.back) } label: {
+                    Label("Back", systemImage: "arrow.uturn.backward")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity).frame(height: 80)
+                        .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
+                }
+                .buttonStyle(.plain).disabled(!enabled)
+                .accessibilityIdentifier("eyesFreeBack")
             }
-            surface.frame(minHeight: 160)
-            if let inputLog {
-                Text(inputLog).font(.caption.monospaced()).accessibilityIdentifier("eyesFreeInputLog")
-            }
-            Button { press(.back) } label: {
-                Label("Back", systemImage: "arrow.uturn.backward")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity).frame(height: 80)
-                    .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
-            }
-            .buttonStyle(.plain).disabled(!enabled)
-            .accessibilityIdentifier("eyesFreeBack")
         }
         .foregroundStyle(Theme.label)
         .padding(.bottom, 12)
