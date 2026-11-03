@@ -22,8 +22,8 @@ final class AppModel: TVDriverDelegate {
         inputAvailability.allowsGestures
     }
 
-    var keyboardInputAvailable: Bool {
-        inputAvailability.allowsKeyboardShortcuts
+    var remoteCommandsAvailable: Bool {
+        inputAvailability.allowsCommands
     }
 
     private var inputAvailability: RemoteInputAvailability {

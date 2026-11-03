@@ -7,9 +7,9 @@ struct RemoteInputAvailabilityTests {
         .idle, .connecting, .unpaired, .pairing(.acceptOnTV), .connected, .failed("offline")
     ]
 
-    @Test func deliberateKeyboardShortcutsCanReachDriverRecovery() {
+    @Test func deliberateCommandsCanReachDriverRecovery() {
         for state in states {
-            #expect(RemoteInputAvailability(state: state).allowsKeyboardShortcuts)
+            #expect(RemoteInputAvailability(state: state).allowsCommands)
         }
     }
 
@@ -25,7 +25,7 @@ struct RemoteInputAvailabilityTests {
                 let availability = RemoteInputAvailability(state: state,
                     showingDevices: mask & 1 != 0, showingKeyboard: mask & 2 != 0,
                     showingApps: mask & 4 != 0, showingSettings: mask & 8 != 0)
-                #expect(!availability.allowsKeyboardShortcuts)
+                #expect(!availability.allowsCommands)
                 #expect(!availability.allowsGestures)
             }
         }
