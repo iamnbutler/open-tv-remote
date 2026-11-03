@@ -38,6 +38,17 @@ struct RemoteModeTests {
         }
     }
 
+    @Test func aTVMovingToANewAddressKeepsItsMode() {
+        withPreferences { modes, _ in
+            modes.save(.eyesFree, for: "lg@old-ip")
+            modes.save(.eyesFree, for: "another-tv")
+            modes.move(from: "lg@old-ip", to: "lg@new-ip")
+            #expect(modes.mode(for: "lg@new-ip") == .eyesFree)
+            #expect(modes.mode(for: "lg@old-ip") == .standard)
+            #expect(modes.mode(for: "another-tv") == .eyesFree)
+        }
+    }
+
     @Test func forgettingOneTVPreservesTheOthers() {
         withPreferences { modes, _ in
             modes.save(.eyesFree, for: "a")

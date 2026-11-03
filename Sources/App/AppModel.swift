@@ -119,6 +119,7 @@ final class AppModel: TVDriverDelegate {
         DeviceStore.save(devices)
         guard let previous, current == nil else { return }
         if let moved = devices.first(where: { $0.brand == previous.brand && $0.name == previous.name }) {
+            remoteModes.move(from: previous.id, to: moved.id)
             activate(moved)
         } else {
             forget(previous)
@@ -328,6 +329,7 @@ final class AppModel: TVDriverDelegate {
             devices.append(moved)
         }
         DeviceStore.save(devices)
+        remoteModes.move(from: device.id, to: moved.id)
         activate(moved)
     }
 

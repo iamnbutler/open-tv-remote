@@ -33,6 +33,14 @@ struct RemoteModePreferences {
         defaults.set(modes, forKey: Self.key)
     }
 
+    func move(from oldID: String, to newID: String) {
+        guard oldID != newID else { return }
+        var modes = defaults.dictionary(forKey: Self.key) as? [String: String] ?? [:]
+        guard let mode = modes.removeValue(forKey: oldID) else { return }
+        modes[newID] = mode
+        defaults.set(modes, forKey: Self.key)
+    }
+
     func forget(_ deviceID: String) {
         var modes = defaults.dictionary(forKey: Self.key) as? [String: String] ?? [:]
         modes.removeValue(forKey: deviceID)
