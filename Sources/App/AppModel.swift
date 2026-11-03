@@ -24,7 +24,8 @@ final class AppModel: TVDriverDelegate {
     }
 
     var availableRemoteModes: [RemoteControlMode] {
-        supportsCursor ? [.standard, .eyesFree, .cursor] : [.standard, .eyesFree]
+        supportsCursor ? [.standard, .keyboard, .keypad, .eyesFree, .cursor]
+                       : [.standard, .keyboard, .keypad, .eyesFree]
     }
 
     func selectRemoteMode(_ mode: RemoteControlMode) {
@@ -75,6 +76,8 @@ final class AppModel: TVDriverDelegate {
             supportsCursor = driver.supportsCursor
             state = .connected
             if UserDefaults.standard.bool(forKey: "demoEyesFree") { remoteControlMode = .eyesFree }
+            else if let raw = UserDefaults.standard.string(forKey: "padMode"),
+                    let mode = RemoteControlMode(rawValue: raw) { remoteControlMode = mode }
             switch DemoMode.sheet {
             case "apps": showingApps = true
             case "devices": showingDevices = true

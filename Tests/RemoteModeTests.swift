@@ -92,6 +92,26 @@ struct RemoteModeTests {
         }
     }
 
+    @Test func keyboardAndNumberPadArePersistentModes() {
+        withPreferences { modes, defaults in
+            modes.save(.keyboard, for: "office")
+            modes.save(.keypad, for: "bedroom")
+            let restored = RemoteModePreferences(defaults: defaults)
+            #expect(restored.mode(for: "office") == .keyboard)
+            #expect(restored.mode(for: "bedroom") == .keypad)
+        }
+    }
+
+    @Test func legacyPadSelectionMigratesOnceWithoutChangingOtherTVs() {
+        withPreferences { modes, defaults in
+            defaults.set("keyboard", forKey: "padMode")
+            modes.migrateLegacy(for: "selected")
+            modes.migrateLegacy(for: "another")
+            #expect(modes.mode(for: "selected") == .keyboard)
+            #expect(modes.mode(for: "another") == .standard)
+        }
+    }
+
     @Test func unknownSavedModesAndMissingTVAreSafe() {
         withPreferences { modes, defaults in
             defaults.set(["tv": "future-mode"], forKey: "remoteView.modes.v1")

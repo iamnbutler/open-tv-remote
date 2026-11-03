@@ -10,7 +10,10 @@ struct CursorScreen: View {
     var body: some View {
         CursorControls(tvName: model.current?.name ?? "No TV selected",
                        enabled: model.supportsCursor && model.remoteInputAvailable && page == 0,
-                       sessionID: model.currentID) { command, request in
+                       sessionID: model.currentID,
+                       mode: Binding(get: { model.remoteControlMode }, set: {
+                           Haptics.tap(); model.selectRemoteMode($0)
+                       }), modes: model.availableRemoteModes) { command, request in
             guard page == 0 else { return false }
             let sent = await model.sendCursor(command, request: request)
             if case .move = command { return sent }
@@ -36,12 +39,17 @@ private struct CursorControls: View {
     let tvName: String
     let enabled: Bool
     let sessionID: String?
+    @Binding var mode: RemoteControlMode
+    let modes: [RemoteControlMode]
 
     init(tvName: String, enabled: Bool, sessionID: String?,
+         mode: Binding<RemoteControlMode> = .constant(.cursor), modes: [RemoteControlMode] = RemoteControlMode.allCases,
          send: @escaping (CursorCommand, RemoteInputRequest) async -> Bool) {
         self.tvName = tvName
         self.enabled = enabled
         self.sessionID = sessionID
+        self._mode = mode
+        self.modes = modes
         _sender = State(initialValue: CursorSender(send: send,
             speed: UserDefaults.standard.object(forKey: "cursor.speed.v2") as? Double ?? CursorMotion.defaultSpeed,
             saveSpeed: { UserDefaults.standard.set($0, forKey: "cursor.speed.v2") }))
@@ -49,6 +57,8 @@ private struct CursorControls: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            RemoteNavigationRow(selection: $mode, modes: modes, enabled: enabled,
+                                back: { press(.back) }, home: { press(.home) })
             if dynamicTypeSize.isAccessibilitySize {
                 // Keep scrollable settings outside the pointer's gesture surface.
                 controlSurface
@@ -125,13 +135,11 @@ private struct CursorControls: View {
             VStack(spacing: 12) {
                 action("Back", symbol: "arrow.uturn.backward", command: .back)
                 action("Click", symbol: "cursorarrow.click", command: .click)
-                action("Home", symbol: "house", command: .home)
             }
         } else {
             HStack(spacing: 12) {
                 action("Back", symbol: "arrow.uturn.backward", command: .back)
                 action("Click", symbol: "cursorarrow.click", command: .click)
-                action("Home", symbol: "house", command: .home)
             }
         }
     }

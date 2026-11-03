@@ -2,19 +2,21 @@ import SwiftUI
 
 struct RemoteScreen: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("padMode") private var mode: PadMode = .dpad
+    private var mode: PadMode {
+        switch model.remoteControlMode {
+        case .keyboard: .keyboard
+        case .keypad: .keypad
+        default: .dpad
+        }
+    }
     @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 12) {
             TopBar(showsPower: model.remoteControlMode == .standard)
             StatusBanner()
-            RemoteModePicker(selection: Binding(get: { model.remoteControlMode }, set: {
-                Haptics.tap()
-                model.selectRemoteMode($0)
-            }), modes: model.availableRemoteModes)
             switch model.remoteControlMode {
-            case .standard: standardControls
+            case .standard, .keyboard, .keypad: standardControls
             case .eyesFree: JoystickScreen()
             case .cursor: CursorScreen()
             }
@@ -58,14 +60,11 @@ struct RemoteScreen: View {
     }
 
     private var navRow: some View {
-        HStack(spacing: 12) {
-            RemoteKeyButton(key: .back, symbol: "arrow.uturn.backward")
-                .frame(width: 58)
-            ModePicker(mode: $mode)
-            RemoteKeyButton(key: .home, symbol: "house.fill")
-                .frame(width: 58)
-        }
-        .frame(height: 54)
+        RemoteNavigationRow(selection: Binding(get: { model.remoteControlMode }, set: {
+            Haptics.tap()
+            model.selectRemoteMode($0)
+        }), modes: model.availableRemoteModes, enabled: model.remoteInputAvailable,
+        back: { model.press(.back) }, home: { model.press(.home) })
     }
 
     @ViewBuilder private var pad: some View {
@@ -105,7 +104,7 @@ struct RemoteScreen: View {
     /// Hardware keyboard control (Mac, or iPad with a keyboard).
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
         guard model.remoteInputAvailable else { return .ignored }
-        if model.remoteControlMode == .standard, mode == .keyboard, let result = typeKey(press) { return result }
+        if mode == .keyboard, let result = typeKey(press) { return result }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
         case .downArrow: .down
@@ -151,31 +150,6 @@ struct RemoteScreen: View {
             model.type(press.characters)
         }
         return .handled
-    }
-}
-
-struct RemoteModePicker: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Binding var selection: RemoteControlMode
-    var modes = RemoteControlMode.allCases
-
-    var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                picker.pickerStyle(.menu).frame(minHeight: 44)
-            } else {
-                picker.pickerStyle(.segmented).frame(minHeight: 44)
-            }
-        }
-        .tint(Theme.accent)
-        .accessibilityIdentifier("remoteModePicker")
-    }
-
-    private var picker: some View {
-        Picker("Remote mode", selection: $selection) {
-            ForEach(modes) { mode in Text(mode.title).tag(mode) }
-        }
-        .labelsHidden()
     }
 }
 
@@ -308,40 +282,6 @@ private struct StatusBanner: View {
 }
 
 // MARK: - Pieces
-
-private struct ModePicker: View {
-    @Binding var mode: PadMode
-    @Namespace private var ns
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(PadMode.allCases) { m in
-                Button {
-                    Haptics.tap()
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) { mode = m }
-                } label: {
-                    Image(systemName: m.symbol)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(mode == m ? Color.black : Theme.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background {
-                            if mode == m {
-                                Capsule().fill(Theme.accent).matchedGeometryEffect(id: "sel", in: ns)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(m.title)
-                .accessibilityAddTraits(mode == m ? .isSelected : [])
-            }
-
-        }
-        .padding(5)
-        .background(Capsule().fill(Theme.well))
-        .overlay(Capsule().strokeBorder(.white.opacity(0.05), lineWidth: 1))
-    }
-}
 
 private struct Rocker: View {
     @Environment(AppModel.self) private var model
