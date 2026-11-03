@@ -15,6 +15,20 @@ final class AppModel: TVDriverDelegate {
     var showingKeyboard = false
     var showingApps = false
     var showingSettings = false
+    private(set) var remoteControlMode: RemoteControlMode = .standard
+    private let remoteModes = RemoteModePreferences()
+
+    var remoteInputAvailable: Bool {
+        state == .connected && !showingDevices && !showingKeyboard && !showingApps && !showingSettings
+    }
+
+    func selectRemoteMode(_ mode: RemoteControlMode) {
+        remoteControlMode = mode
+        #if DEBUG
+        if DemoMode.isEnabled { return }
+        #endif
+        remoteModes.save(mode, for: currentID)
+    }
 
     let discovery = Discovery()
     let jellyfin = JellyfinStore()
@@ -34,6 +48,7 @@ final class AppModel: TVDriverDelegate {
             driver.delegate = self
             self.driver = driver
             state = .connected
+            if UserDefaults.standard.bool(forKey: "demoEyesFree") { remoteControlMode = .eyesFree }
             switch DemoMode.sheet {
             case "apps": showingApps = true
             case "devices": showingDevices = true
@@ -97,12 +112,14 @@ final class AppModel: TVDriverDelegate {
     }
 
     func forget(_ device: TVDevice) {
+        remoteModes.forget(device.id)
         devices.removeAll { $0.id == device.id }
         DeviceStore.save(devices)
         if device.id == currentID {
             driver?.disconnect()
             driver = nil
             currentID = nil
+            remoteControlMode = .standard
             DeviceStore.currentID = nil
             state = .idle
             installedApps = nil
@@ -122,6 +139,8 @@ final class AppModel: TVDriverDelegate {
         driver.delegate = self
         self.driver = driver
         state = driver.state
+        remoteModes.migrateLegacy(for: device.id)
+        remoteControlMode = remoteModes.mode(for: device.id)
         driver.connect()
     }
 

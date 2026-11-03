@@ -3,65 +3,64 @@ import SwiftUI
 struct RemoteScreen: View {
     @Environment(AppModel.self) private var model
     @AppStorage("padMode") private var mode: PadMode = .dpad
-    @State private var showingJoystick = false
     @FocusState private var focused: Bool
 
     var body: some View {
+        VStack(spacing: 12) {
+            TopBar(showsPower: model.remoteControlMode == .standard)
+            StatusBanner()
+            RemoteModePicker(selection: Binding(get: { model.remoteControlMode }, set: {
+                Haptics.tap()
+                model.selectRemoteMode($0)
+            }))
+            switch model.remoteControlMode {
+            case .standard: standardControls
+            case .eyesFree: JoystickScreen()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .frame(maxWidth: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background.ignoresSafeArea())
+        .focusable()
+        .focusEffectDisabled()
+        .focused($focused)
+        .onKeyPress(action: handleKey)
+        .onAppear { focused = true }
+    }
+
+    private var standardControls: some View {
         GeometryReader { geo in
-            // Size the pad to whatever's left so the remote fits without scrolling on every
-            // phone — a scroll that starts on a key would otherwise press it.
-            let compact = geo.size.height < 760
-            let spacing: CGFloat = compact ? 10 : 18
-            let fixed: CGFloat = 48 + 54 + 192 + spacing * 4 + 28 + PageSwitcher.height
-            // The keyboard has too many keys to share the screen, so it takes the controls' space too.
+            let spacing: CGFloat = geo.size.height < 620 ? 10 : 18
+            let fixed: CGFloat = 54 + 192 + spacing * 3 + 28
             let padHeight = mode == .keyboard
-                ? max(300, geo.size.height - (fixed - 192 - spacing) - 8)
-                : min(340, max(170, geo.size.height - fixed - 8))
+                ? max(300, geo.size.height - (fixed - 192 - spacing))
+                : min(340, max(170, geo.size.height - fixed))
             ScrollView {
                 VStack(spacing: spacing) {
-                    TopBar()
-                    StatusBanner()
                     navRow
                     pad
                         .frame(height: padHeight)
                         .overlay(alignment: .bottomTrailing) {
-                            // The round D-pad leaves its corners free.
                             if mode == .dpad { SettingsButton() }
                         }
                         .padding(.vertical, 4)
                     if mode != .keyboard { controls }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
                 .padding(.bottom, 20)
                 .frame(maxWidth: 440)
                 .frame(maxWidth: .infinity, minHeight: geo.size.height)
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .background(Theme.background.ignoresSafeArea())
-        .focusable()
-        .focusEffectDisabled()
-        .focused($focused)
-        .onKeyPress(action: handleKey)
-        .onAppear {
-            focused = true
-            #if DEBUG
-            if DemoMode.isEnabled && UserDefaults.standard.bool(forKey: "demoEyesFree") { showingJoystick = true }
-            #endif
-        }
-        #if os(iOS)
-        .fullScreenCover(isPresented: $showingJoystick) { JoystickScreen() }
-        #else
-        .sheet(isPresented: $showingJoystick) { JoystickScreen() }
-        #endif
     }
 
     private var navRow: some View {
         HStack(spacing: 12) {
             RemoteKeyButton(key: .back, symbol: "arrow.uturn.backward")
                 .frame(width: 58)
-            ModePicker(mode: $mode) { showingJoystick = true }
+            ModePicker(mode: $mode)
             RemoteKeyButton(key: .home, symbol: "house.fill")
                 .frame(width: 58)
         }
@@ -104,7 +103,8 @@ struct RemoteScreen: View {
 
     /// Hardware keyboard control (Mac, or iPad with a keyboard).
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        if mode == .keyboard, let result = typeKey(press) { return result }
+        guard model.remoteInputAvailable else { return .ignored }
+        if model.remoteControlMode == .standard, mode == .keyboard, let result = typeKey(press) { return result }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
         case .downArrow: .down
@@ -153,22 +153,51 @@ struct RemoteScreen: View {
     }
 }
 
+struct RemoteModePicker: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Binding var selection: RemoteControlMode
+    var modes = RemoteControlMode.allCases
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                picker.pickerStyle(.menu).frame(minHeight: 44)
+            } else {
+                picker.pickerStyle(.segmented).frame(minHeight: 44)
+            }
+        }
+        .tint(Theme.accent)
+        .accessibilityIdentifier("remoteModePicker")
+    }
+
+    private var picker: some View {
+        Picker("Remote mode", selection: $selection) {
+            ForEach(modes) { mode in Text(mode.title).tag(mode) }
+        }
+    }
+}
+
 // MARK: - Top bar
 
 private struct TopBar: View {
+    var showsPower = true
     @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: 12) {
-            // Where the TV has a separate full power-off (Samsung), holding the key sends it.
-            KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power",
-                   holdAction: model.supports(.powerOff) ? { model.press(.powerOff) } : nil,
-                   holdName: "Turn off TV") {
-                model.press(.power)
-            } label: {
-                Image(systemName: "power").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.power)
+            if showsPower {
+                // Where the TV has a separate full power-off (Samsung), holding the key sends it.
+                KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power",
+                       holdAction: model.supports(.powerOff) ? { model.press(.powerOff) } : nil,
+                       holdName: "Turn off TV") {
+                    model.press(.power)
+                } label: {
+                    Image(systemName: "power").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.power)
+                }
+                .frame(width: 48, height: 48)
+            } else {
+                SettingsButton().frame(width: 48, height: 48)
             }
-            .frame(width: 48, height: 48)
 
             Button { model.showingDevices = true } label: {
                 VStack(spacing: 3) {
@@ -280,7 +309,6 @@ private struct StatusBanner: View {
 
 private struct ModePicker: View {
     @Binding var mode: PadMode
-    var openJoystick: () -> Void
     @Namespace private var ns
 
     var body: some View {
@@ -305,19 +333,7 @@ private struct ModePicker: View {
                 .accessibilityLabel(m.title)
                 .accessibilityAddTraits(mode == m ? .isSelected : [])
             }
-            Button {
-                Haptics.tap()
-                openJoystick()
-            } label: {
-                Image(systemName: "l.joystick.tilt.up.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Eyes-free mode")
-            .accessibilityIdentifier("openEyesFree")
+
         }
         .padding(5)
         .background(Capsule().fill(Theme.well))
