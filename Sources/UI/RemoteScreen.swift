@@ -13,7 +13,7 @@ struct RemoteScreen: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TopBar(showsPower: model.remoteControlMode == .standard)
+            TopBar()
             StatusBanner()
             switch model.remoteControlMode {
             case .standard, .keyboard, .keypad: standardMode
@@ -47,9 +47,6 @@ struct RemoteScreen: View {
                 VStack(spacing: spacing) {
                     pad
                         .frame(height: padHeight)
-                        .overlay(alignment: .bottomTrailing) {
-                            if mode == .dpad { SettingsButton() }
-                        }
                         .padding(.vertical, 4)
                     if mode != .keyboard { controls }
                 }
@@ -158,24 +155,19 @@ struct RemoteScreen: View {
 // MARK: - Top bar
 
 private struct TopBar: View {
-    var showsPower = true
     @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(spacing: 12) {
-            if showsPower {
-                // Where the TV has a separate full power-off (Samsung), holding the key sends it.
-                KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power",
-                       holdAction: model.supports(.powerOff) ? { model.press(.powerOff) } : nil,
-                       holdName: "Turn off TV") {
-                    model.press(.power)
-                } label: {
-                    Image(systemName: "power").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.power)
-                }
-                .frame(width: 48, height: 48)
-            } else {
-                SettingsButton().frame(width: 48, height: 48)
+            // Where the TV has a separate full power-off (Samsung), holding the key sends it.
+            KeyCap(shape: Circle(), tint: Theme.power, accessibilityLabel: "Power",
+                   holdAction: model.supports(.powerOff) ? { model.press(.powerOff) } : nil,
+                   holdName: "Turn off TV") {
+                model.press(.power)
+            } label: {
+                Image(systemName: "power").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.power)
             }
+            .frame(width: 48, height: 48)
 
             Button { model.showingDevices = true } label: {
                 VStack(spacing: 3) {
@@ -201,6 +193,8 @@ private struct TopBar: View {
                 Image(systemName: "keyboard").font(.system(size: 16, weight: .semibold))
             }
             .frame(width: 48, height: 48)
+
+            SettingsButton().frame(width: 48, height: 48)
         }
     }
 }
