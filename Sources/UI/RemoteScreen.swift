@@ -174,6 +174,7 @@ struct RemoteModePicker: View {
         Picker("Remote mode", selection: $selection) {
             ForEach(modes) { mode in Text(mode.title).tag(mode) }
         }
+        .labelsHidden()
     }
 }
 
