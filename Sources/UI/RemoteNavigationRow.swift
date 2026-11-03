@@ -90,7 +90,7 @@ struct RemoteModeLayout<Navigation: View, Controls: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             navigation
             controls
         }

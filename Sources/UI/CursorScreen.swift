@@ -60,7 +60,7 @@ private struct CursorControls: View {
             RemoteNavigationRow(selection: $mode, modes: modes, enabled: enabled,
                                 back: { press(.back) }, home: { press(.home) })
         } controls: {
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 if dynamicTypeSize.isAccessibilitySize {
                     // Keep scrollable settings outside the pointer's gesture surface.
                     controlSurface

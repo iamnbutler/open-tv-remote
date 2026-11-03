@@ -24,7 +24,7 @@ struct RemoteScreen: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .frame(maxWidth: 600)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.background.ignoresSafeArea())
         .focusable()
         .focusEffectDisabled()
