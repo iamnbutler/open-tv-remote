@@ -41,7 +41,7 @@ enum LocalHTTP {
         started.append(url.path)
         return await withCheckedContinuation { completions[url.path] = $0 }
     }
-    static func complete(_ path: String, status: Int = 200) {
+    static func complete(_ path: String, status: Int? = 200) {
         completions.removeValue(forKey: path)?.resume(returning: status)
     }
     static func reset() {

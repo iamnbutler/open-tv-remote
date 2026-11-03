@@ -121,19 +121,10 @@ final class AppModel: TVDriverDelegate {
         guard let shared = DeviceStore.loadShared() else { return }
         let mine = devices
         let previous = current
-        devices = shared.map { tv in
-            guard let local = mine.first(where: { $0.id == tv.id })
-                ?? mine.first(where: { $0.brand == tv.brand && $0.name == tv.name }) else { return tv }
-            var tv = tv
-            tv.token = local.token
-            tv.isPaired = local.isPaired
-            tv.macAddress = tv.macAddress ?? local.macAddress
-            return tv
-        }
+        devices = TVDeviceSync.merge(shared, preserving: mine, modes: remoteModes)
         DeviceStore.save(devices)
         guard let previous, current == nil else { return }
         if let moved = devices.first(where: { $0.brand == previous.brand && $0.name == previous.name }) {
-            remoteModes.move(from: previous.id, to: moved.id)
             activate(moved)
         } else {
             forget(previous)

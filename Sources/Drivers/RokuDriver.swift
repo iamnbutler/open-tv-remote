@@ -19,6 +19,7 @@ final class RokuDriver: TVDriver {
     }
 
     func connect() {
+        generation += 1
         state = .connecting
         let token = generation
         Task {
@@ -96,9 +97,10 @@ final class RokuDriver: TVDriver {
                 guard !request.isCancelled, self.state == .connected else { return }
             }
             let status = await LocalHTTP.post(url, timeout: request == nil ? 3 : 2)
-            guard !Task.isCancelled, request?.isCancelled != true, token == self.generation else { return }
+            guard !Task.isCancelled, token == self.generation else { return }
             switch status {
             case 200?, 202?, 204?:
+                guard request?.isCancelled != true else { return }
                 if self.state != .connected { self.state = .connected }
             case 403?:
                 self.state = .failed("Your Roku is blocking remote apps. On the Roku, go to Settings → System → Advanced system settings → Control by mobile apps and set Network access to Default or Permissive.")
