@@ -20,7 +20,17 @@ final class AppModel: TVDriverDelegate {
     private let remoteModes = RemoteModePreferences()
 
     var remoteInputAvailable: Bool {
-        state == .connected && !showingDevices && !showingKeyboard && !showingApps && !showingSettings
+        inputAvailability.allowsGestures
+    }
+
+    var keyboardInputAvailable: Bool {
+        inputAvailability.allowsKeyboardShortcuts
+    }
+
+    private var inputAvailability: RemoteInputAvailability {
+        RemoteInputAvailability(state: state, showingDevices: showingDevices,
+                                showingKeyboard: showingKeyboard, showingApps: showingApps,
+                                showingSettings: showingSettings)
     }
 
     var availableRemoteModes: [RemoteControlMode] {

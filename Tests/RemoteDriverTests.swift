@@ -318,6 +318,28 @@ struct RemoteDriverTests {
         #expect(pointer.sent.isEmpty)
     }
 
+    @Test func keyboardShortcutReconnectsAnIdleLGWithoutPairing() {
+        let (driver, control, _) = connectLG()
+        control.peerClosed()
+        #expect(driver.state == .idle)
+        let availability = RemoteInputAvailability(state: driver.state)
+        #expect(availability.allowsKeyboardShortcuts)
+        #expect(!availability.allowsGestures)
+        if availability.allowsKeyboardShortcuts { driver.send(.up) }
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement !== control)
+        #expect(driver.state == .connecting)
+        let registration = replacement.sent.compactMap(JSON.parse).first!
+        let payload = registration["payload"] as! [String: Any]
+        #expect(payload["client-key"] as? String == "test")
+        #expect(payload["forcePairing"] as? Bool == false)
+        replacement.onText?("{\"type\":\"registered\",\"id\":\"register_0\",\"payload\":{}}")
+        respondToPointerRequest(replacement)
+        #expect(driver.state == .connected)
+        #expect(LocalWebSocket.instances.last!.sent == ["type:button\nname:UP\n\n"])
+        driver.disconnect()
+    }
+
     @Test func lgRecoversInputSocketWithoutReplayingTheTriggeringKey() async {
         let (driver, control, pointer) = connectLG()
         await driver.sendInteractive(.right, request: RemoteInputRequest())
