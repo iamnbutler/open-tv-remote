@@ -15,17 +15,21 @@ final class AppModel: TVDriverDelegate {
     var showingKeyboard = false
     var showingApps = false
     var showingSettings = false
-    var showingJoystick = false {
-        didSet {
-            #if os(iOS)
-            #if DEBUG
-            if DemoMode.isEnabled { return }
-            #endif
-            // Persist the chosen view only. Gesture state and queued input stay ephemeral.
-            UserDefaults.standard.set(showingJoystick, forKey: "remoteView.eyesFree.v1")
-            #endif
-        }
+    private(set) var remoteControlMode: RemoteControlMode = .standard
+    private let remoteModes = RemoteModePreferences()
+
+    var remoteInputAvailable: Bool {
+        state == .connected && !showingDevices && !showingKeyboard && !showingApps && !showingSettings
     }
+
+    func selectRemoteMode(_ mode: RemoteControlMode) {
+        remoteControlMode = mode
+        #if DEBUG
+        if DemoMode.isEnabled { return }
+        #endif
+        remoteModes.save(mode, for: currentID)
+    }
+
     #if os(iOS)
     let remoteActivity = AppModel.makeRemoteActivityController()
     private var pendingRemoteShortcut: URL?
@@ -61,6 +65,7 @@ final class AppModel: TVDriverDelegate {
             driver.delegate = self
             self.driver = driver
             state = .connected
+            if UserDefaults.standard.bool(forKey: "demoEyesFree") { remoteControlMode = .eyesFree }
             switch DemoMode.sheet {
             case "apps": showingApps = true
             case "devices": showingDevices = true
@@ -77,9 +82,6 @@ final class AppModel: TVDriverDelegate {
             MainActor.assumeIsolated { self?.handleRemoteActivityAction(event) }
         }
         remoteActivity.reconcile(selectedID: currentID)
-        if current != nil, !isConnectionPaused {
-            showingJoystick = UserDefaults.standard.bool(forKey: "remoteView.eyesFree.v1")
-        }
         #endif
         NotificationCenter.default.addObserver(forName: CloudSettings.didChange, object: nil, queue: .main) { [weak self] note in
             let keys = note.userInfo?["keys"] as? [String] ?? []
@@ -137,12 +139,14 @@ final class AppModel: TVDriverDelegate {
     }
 
     func forget(_ device: TVDevice) {
+        remoteModes.forget(device.id)
         devices.removeAll { $0.id == device.id }
         DeviceStore.save(devices)
         if device.id == currentID {
             driver?.disconnect()
             driver = nil
             currentID = nil
+            remoteControlMode = .standard
             #if os(iOS)
             remoteActivity.selectionChanged(to: nil)
             #endif
@@ -168,6 +172,8 @@ final class AppModel: TVDriverDelegate {
         driver.delegate = self
         self.driver = driver
         state = driver.state
+        remoteModes.migrateLegacy(for: device.id)
+        remoteControlMode = remoteModes.mode(for: device.id)
         #if os(iOS)
         if isForeground && !isConnectionPaused {
             driver.connect()
@@ -249,7 +255,6 @@ final class AppModel: TVDriverDelegate {
         relocateTask = nil
         isRelocating = false
         discovery.stop()
-        showingJoystick = false
         driver?.disconnect()
         state = .idle
     }
@@ -283,7 +288,7 @@ final class AppModel: TVDriverDelegate {
         if case .pairing = state { return }
         remoteActivity.noteInteraction()
         UserDefaults.standard.set(0, forKey: "page")
-        showingJoystick = true
+        selectRemoteMode(.eyesFree)
         #endif
     }
 

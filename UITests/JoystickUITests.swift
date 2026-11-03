@@ -15,25 +15,26 @@ final class JoystickUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["-demo", "-jellyfin.enabled", "NO", "-page", "0", "-demoInputLog", "YES", "-demoEyesFree", openMode ? "YES" : "NO"]
         app.launch()
-        if openMode { XCTAssertTrue(app.buttons["closeEyesFree"].waitForExistence(timeout: 10)) }
+        if openMode { XCTAssertTrue(app.segmentedControls["remoteModePicker"].buttons["Eyes-free"].waitForExistence(timeout: 10)) }
     }
 
     private var log: XCUIElement { app.staticTexts["eyesFreeInputLog"] }
     private var stick: XCUIElement { app.descendants(matching: .any).matching(identifier: "eyesFreeStick").firstMatch }
     private var count: Int { Int(log.label.split(separator: ":").first ?? "-1") ?? -1 }
 
-    func testEntryAndExit() {
+    func testSwitchPersistentModes() {
         launch(openMode: false)
-        let entry = app.buttons["openEyesFree"]
+        let entry = app.segmentedControls["remoteModePicker"].buttons["Eyes-free"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10))
         entry.tap()
-        XCTAssertTrue(app.buttons["closeEyesFree"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.segmentedControls["remoteModePicker"].buttons["Eyes-free"].waitForExistence(timeout: 5))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Eyes-free mode on iPhone 18 Pro Max"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        app.buttons["closeEyesFree"].tap()
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        app.segmentedControls["remoteModePicker"].buttons["Standard"].tap()
+        XCTAssertFalse(stick.exists)
+        XCTAssertTrue(entry.exists)
     }
 
     func testTapBackAndHome() {

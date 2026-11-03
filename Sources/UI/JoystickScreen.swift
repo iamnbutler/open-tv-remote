@@ -2,12 +2,12 @@ import SwiftUI
 
 struct JoystickScreen: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
+    @AppStorage("page") private var page = 0
 
     var body: some View {
-        JoystickControls(tvName: model.current?.name ?? "No TV selected", enabled: model.state == .connected,
-                         sessionID: model.currentID, inputLog: inputLog, close: { dismiss() }) { key, request in
-            guard model.state == .connected, !request.isCancelled else { return }
+        JoystickControls(tvName: model.current?.name ?? "No TV selected", enabled: model.remoteInputAvailable && page == 0,
+                         sessionID: model.currentID, inputLog: inputLog) { key, request in
+            guard model.remoteInputAvailable, page == 0, model.remoteControlMode == .eyesFree, !request.isCancelled else { return }
             switch request.feedback {
             case .firm:
                 switch key {
@@ -38,46 +38,53 @@ private struct JoystickControls: View {
     let enabled: Bool
     let sessionID: String?
     let inputLog: String?
-    let close: () -> Void
     @State private var input = JoystickGesture()
     @State private var sender: JoystickSender
     @GestureState private var touching = false
     @State private var ignoreUntilLift = false
 
-    init(tvName: String, enabled: Bool, sessionID: String?, inputLog: String? = nil, close: @escaping () -> Void,
+    init(tvName: String, enabled: Bool, sessionID: String?, inputLog: String? = nil,
          send: @escaping (RemoteKey, RemoteInputRequest) async -> Void) {
         self.tvName = tvName
         self.enabled = enabled
         self.sessionID = sessionID
         self.inputLog = inputLog
-        self.close = close
         _sender = State(initialValue: JoystickSender(send: send))
     }
 
     var body: some View {
         VStack(spacing: 16) {
-            header
             VStack(spacing: 5) {
                 Text(enabled ? "Touch anywhere. Drag to move." : "Connect to a TV first.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
-                Text(enabled ? "Tap for OK · Hold a direction to repeat" : "Close this mode to choose or pair a TV.")
+                Text(enabled ? "Tap for OK · Hold a direction to repeat" : "Choose or connect to a TV above.")
                     .font(.system(size: 13)).foregroundStyle(Theme.secondary)
             }
-            surface
+            surface.frame(minHeight: 160)
             if let inputLog {
                 Text(inputLog).font(.caption.monospaced()).accessibilityIdentifier("eyesFreeInputLog")
             }
-            Button { press(.back) } label: {
-                Label("Back", systemImage: "arrow.uturn.backward")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity).frame(height: 80)
-                    .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
+            HStack(spacing: 12) {
+                Button { press(.back) } label: {
+                    Label("Back", systemImage: "arrow.uturn.backward")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity).frame(height: 80)
+                        .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
+                }
+                .buttonStyle(.plain).disabled(!enabled)
+                .accessibilityIdentifier("eyesFreeBack")
+                Button { press(.home) } label: {
+                    Image(systemName: "house")
+                        .font(.system(size: 24, weight: .semibold))
+                        .frame(width: 80, height: 80)
+                        .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
+                }
+                .buttonStyle(.plain).disabled(!enabled).accessibilityLabel("Home")
+                .accessibilityIdentifier("eyesFreeHome")
             }
-            .buttonStyle(.plain).disabled(!enabled)
-            .accessibilityIdentifier("eyesFreeBack")
         }
         .foregroundStyle(Theme.label)
-        .padding(20)
+        .padding(.bottom, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.ignoresSafeArea())
         .onChange(of: touching) { _, active in
@@ -87,70 +94,45 @@ private struct JoystickControls: View {
         .onChange(of: sessionID) { _, _ in cancel() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { cancel() } }
         .onDisappear { cancel() }
-        #if os(macOS)
-        .frame(minWidth: 380, minHeight: 640)
-        #endif
-    }
-
-    private var header: some View {
-        HStack(spacing: 14) {
-            Button { cancel(); close() } label: {
-                Image(systemName: "xmark").font(.system(size: 18, weight: .semibold))
-                    .frame(width: 48, height: 48).background(Circle().fill(Theme.keyTop))
-            }
-            .buttonStyle(.plain).accessibilityLabel("Close eyes-free mode")
-            .accessibilityIdentifier("closeEyesFree")
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Eyes-free").font(.system(size: 24, weight: .bold, design: .rounded))
-                Text(tvName).font(.system(size: 12)).foregroundStyle(Theme.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 0)
-            Button { press(.home) } label: {
-                Image(systemName: "house").font(.system(size: 19, weight: .semibold))
-                    .frame(width: 48, height: 48).background(Circle().fill(Theme.keyTop))
-            }
-            .buttonStyle(.plain).disabled(!enabled).accessibilityLabel("Home")
-            .accessibilityIdentifier("eyesFreeHome")
-        }
     }
 
     private var surface: some View {
-        GeometryReader { geo in
-            ZStack {
-                RoundedRectangle(cornerRadius: 32).fill(Theme.well)
-                RoundedRectangle(cornerRadius: 32).strokeBorder(Theme.accent.opacity(enabled ? 0.18 : 0.05))
-                if let origin = input.origin {
-                    stick.position(origin)
-                } else {
-                    VStack(spacing: 16) {
-                        Image(systemName: "hand.draw").font(.system(size: 48, weight: .light))
-                        Text("Your thumb sets the center")
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
+            GeometryReader { geo in
+                ZStack {
+                    RoundedRectangle(cornerRadius: 32).fill(Theme.well)
+                    RoundedRectangle(cornerRadius: 32).strokeBorder(Theme.accent.opacity(enabled ? 0.18 : 0.05))
+                    if let origin = input.origin {
+                        stick.position(origin)
+                    } else {
+                        VStack(spacing: 16) {
+                            Image(systemName: "hand.draw").font(.system(size: 48, weight: .light))
+                            Text("Your thumb sets the center")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                        }
+                        .foregroundStyle(Theme.secondary.opacity(0.65))
+                        .frame(width: geo.size.width, height: geo.size.height)
                     }
-                    .foregroundStyle(Theme.secondary.opacity(0.65))
-                    .frame(width: geo.size.width, height: geo.size.height)
-                }
-                VStack {
-                    Text(input.direction?.accessibilityName ?? (touching ? "Rest to pause" : "Ready when you are"))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.accent.opacity(enabled ? 0.8 : 0.3))
-                        .padding(.top, 20)
-                    Spacer()
-                }
+                    VStack {
+                        Text(input.direction?.accessibilityName ?? (touching ? "Rest to pause" : "Ready when you are"))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Theme.accent.opacity(enabled ? 0.8 : 0.3))
+                            .padding(.top, 20)
+                        Spacer()
+                    }
             }
             .clipped()
             .contentShape(RoundedRectangle(cornerRadius: 32))
             .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
                 .updating($touching) { _, active, _ in active = true }
                 .onChanged { value in
-                    guard enabled, !ignoreUntilLift else { return }
+                    guard enabled, scenePhase == .active, !ignoreUntilLift else { return }
                     let previous = input.direction
                     input.update(start: value.startLocation, location: value.location,
                                  time: ProcessInfo.processInfo.systemUptime)
                     if previous != input.direction { sender.hold(input.direction) }
                 }
                 .onEnded { value in
-                    guard enabled else { cancel(); return }
+                    guard enabled, scenePhase == .active else { cancel(); return }
                     guard !ignoreUntilLift else { endContact(); return }
                     let select = input.finish(location: value.location, time: ProcessInfo.processInfo.systemUptime)
                     sender.release()
@@ -187,7 +169,7 @@ private struct JoystickControls: View {
     }
 
     private func press(_ key: RemoteKey) {
-        guard enabled else { return }
+        guard enabled, scenePhase == .active else { return }
         ignoreUntilLift = touching
         input.cancel()
         sender.press(key)
@@ -207,11 +189,11 @@ private struct JoystickControls: View {
 }
 
 #Preview("Eyes-free") {
-    JoystickControls(tvName: "Living Room TV", enabled: true, sessionID: "preview", close: {}) { _, _ in }
+    JoystickControls(tvName: "Living Room TV", enabled: true, sessionID: "preview") { _, _ in }
         .frame(width: 390, height: 844)
 }
 
 #Preview("Not connected") {
-    JoystickControls(tvName: "Living Room TV", enabled: false, sessionID: "preview", close: {}) { _, _ in }
+    JoystickControls(tvName: "Living Room TV", enabled: false, sessionID: "preview") { _, _ in }
         .frame(width: 390, height: 844)
 }
