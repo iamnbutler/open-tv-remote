@@ -66,7 +66,7 @@ struct RemoteScreen: View {
         RemoteNavigationRow(selection: Binding(get: { model.remoteControlMode }, set: {
             Haptics.tap()
             model.selectRemoteMode($0)
-        }), modes: model.availableRemoteModes, enabled: model.remoteInputAvailable,
+        }), modes: model.availableRemoteModes, enabled: model.remoteCommandsAvailable,
         back: { model.press(.back) }, home: { model.press(.home) })
     }
 
@@ -106,7 +106,7 @@ struct RemoteScreen: View {
 
     /// Hardware keyboard control (Mac, or iPad with a keyboard).
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        guard model.keyboardInputAvailable else { return .ignored }
+        guard model.remoteCommandsAvailable else { return .ignored }
         if mode == .keyboard, let result = typeKey(press) { return result }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
