@@ -6,7 +6,10 @@ struct JoystickScreen: View {
 
     var body: some View {
         JoystickControls(tvName: model.current?.name ?? "No TV selected", enabled: model.remoteInputAvailable && page == 0,
-                         sessionID: model.currentID, inputLog: inputLog) { key, request in
+                         sessionID: model.currentID, inputLog: inputLog,
+                         mode: Binding(get: { model.remoteControlMode }, set: {
+                             Haptics.tap(); model.selectRemoteMode($0)
+                         }), modes: model.availableRemoteModes) { key, request in
             guard model.remoteInputAvailable, page == 0, model.remoteControlMode == .eyesFree, !request.isCancelled else { return }
             switch request.feedback {
             case .firm:
@@ -38,22 +41,29 @@ private struct JoystickControls: View {
     let enabled: Bool
     let sessionID: String?
     let inputLog: String?
+    @Binding var mode: RemoteControlMode
+    let modes: [RemoteControlMode]
     @State private var input = JoystickGesture()
     @State private var sender: JoystickSender
     @GestureState private var touching = false
     @State private var ignoreUntilLift = false
 
     init(tvName: String, enabled: Bool, sessionID: String?, inputLog: String? = nil,
+         mode: Binding<RemoteControlMode> = .constant(.eyesFree), modes: [RemoteControlMode] = RemoteControlMode.allCases,
          send: @escaping (RemoteKey, RemoteInputRequest) async -> Void) {
         self.tvName = tvName
         self.enabled = enabled
         self.sessionID = sessionID
         self.inputLog = inputLog
+        self._mode = mode
+        self.modes = modes
         _sender = State(initialValue: JoystickSender(send: send))
     }
 
     var body: some View {
         VStack(spacing: 16) {
+            RemoteNavigationRow(selection: $mode, modes: modes, enabled: enabled,
+                                back: { press(.back) }, home: { press(.home) })
             VStack(spacing: 5) {
                 Text(enabled ? "Touch anywhere. Drag to move." : "Connect to a TV first.")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
@@ -64,24 +74,14 @@ private struct JoystickControls: View {
             if let inputLog {
                 Text(inputLog).font(.caption.monospaced()).accessibilityIdentifier("eyesFreeInputLog")
             }
-            HStack(spacing: 12) {
-                Button { press(.back) } label: {
-                    Label("Back", systemImage: "arrow.uturn.backward")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .frame(maxWidth: .infinity).frame(height: 80)
-                        .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
-                }
-                .buttonStyle(.plain).disabled(!enabled)
-                .accessibilityIdentifier("eyesFreeBack")
-                Button { press(.home) } label: {
-                    Image(systemName: "house")
-                        .font(.system(size: 24, weight: .semibold))
-                        .frame(width: 80, height: 80)
-                        .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
-                }
-                .buttonStyle(.plain).disabled(!enabled).accessibilityLabel("Home")
-                .accessibilityIdentifier("eyesFreeHome")
+            Button { press(.back) } label: {
+                Label("Back", systemImage: "arrow.uturn.backward")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .frame(maxWidth: .infinity).frame(height: 80)
+                    .background(RoundedRectangle(cornerRadius: 24).fill(Theme.keyTop))
             }
+            .buttonStyle(.plain).disabled(!enabled)
+            .accessibilityIdentifier("eyesFreeBack")
         }
         .foregroundStyle(Theme.label)
         .padding(.bottom, 12)
