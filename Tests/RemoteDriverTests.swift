@@ -12,12 +12,83 @@ private func waitUntil(_ condition: () -> Bool) async {
 @Suite("Interactive transport ordering and recovery", .serialized)
 @MainActor
 struct RemoteDriverTests {
+    @Test func rokuDisconnectInvalidatesEveryQueuedNormalCommandAndOldResponse() async {
+        let driver = await connectedRoku()
+        driver.send(.up)
+        await waitUntil { LocalHTTP.started.count == 1 }
+        driver.send(.down)
+        driver.send(.left)
+        driver.disconnect()
+        LocalHTTP.complete("/keypress/Up")
+        try? await Task.sleep(for: .milliseconds(30))
+        #expect(LocalHTTP.started == ["/keypress/Up"])
+        #expect(driver.state == .idle)
+        LocalHTTP.reset()
+    }
+
     private func connectedRoku() async -> RokuDriver {
         LocalHTTP.reset()
         let driver = RokuDriver(device: TVDevice(name: "Test Roku", brand: .roku, host: "192.0.2.10"))
         driver.connect()
         await waitUntil { driver.state == .connected }
         return driver
+    }
+
+    @Test func rokuReportsTimeoutAfterDirectionalLift() async {
+        let driver = await connectedRoku()
+        let sender = JoystickSender(send: { key, request in
+            await driver.sendInteractive(key, request: request)
+        })
+        sender.hold(.right)
+        await waitUntil { LocalHTTP.started == ["/keypress/Right"] }
+        sender.release()
+        LocalHTTP.complete("/keypress/Right", status: nil)
+        await waitUntil { if case .failed = driver.state { return true }; return false }
+        #expect(driver.state == .failed("Couldn't reach the Roku."))
+        #expect(LocalHTTP.started == ["/keypress/Right"])
+        sender.stop()
+        driver.disconnect()
+    }
+
+    @Test func rokuReportsAccessDeniedAfterDirectionalLift() async {
+        let driver = await connectedRoku()
+        let sender = JoystickSender(send: { key, request in
+            await driver.sendInteractive(key, request: request)
+        })
+        sender.hold(.right)
+        await waitUntil { LocalHTTP.started == ["/keypress/Right"] }
+        sender.release()
+        LocalHTTP.complete("/keypress/Right", status: 403)
+        await waitUntil { if case .failed = driver.state { return true }; return false }
+        if case .failed(let message) = driver.state {
+            #expect(message.contains("blocking remote apps"))
+        } else { Issue.record("The current connection failure was hidden by input cancellation") }
+        sender.stop()
+        driver.disconnect()
+    }
+
+    @Test func rokuIgnoresOldFailureAfterAReplacementConnection() async {
+        let driver = await connectedRoku()
+        let request = RemoteInputRequest()
+        let operation = Task { await driver.sendInteractive(.right, request: request) }
+        await waitUntil { LocalHTTP.started.count == 1 }
+        driver.connect()
+        await waitUntil { driver.state == .connected }
+        LocalHTTP.complete("/keypress/Right", status: nil)
+        await operation.value
+        #expect(driver.state == .connected)
+        driver.disconnect()
+    }
+
+    @Test func rokuDoesNotReportLocalTaskCancellationAsATVFailure() async {
+        let driver = await connectedRoku()
+        let operation = Task { await driver.sendInteractive(.right, request: RemoteInputRequest()) }
+        await waitUntil { LocalHTTP.started.count == 1 }
+        operation.cancel()
+        LocalHTTP.complete("/keypress/Right", status: nil)
+        await operation.value
+        #expect(driver.state == .connected)
+        driver.disconnect()
     }
 
     @Test func rokuNormalAndInteractiveCommandsShareTheirOrder() async {
