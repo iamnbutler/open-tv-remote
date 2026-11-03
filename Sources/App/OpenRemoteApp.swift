@@ -93,7 +93,9 @@ private struct Pager: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            PageSwitcher(page: Binding { page ?? 0 } set: { new in withAnimation(.snappy) { page = new } })
+            if !model.remoteControlMode.isGestureMode || (page ?? 0) != 0 {
+                PageSwitcher(page: Binding { page ?? 0 } set: { new in withAnimation(.snappy) { page = new } })
+            }
         }
         .background(Theme.background.ignoresSafeArea())
         .onAppear { page = stored }
