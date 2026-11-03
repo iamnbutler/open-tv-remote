@@ -53,20 +53,7 @@ struct RootView: View {
             .sheet(isPresented: $model.showingApps, onDismiss: model.presentPendingRemoteShortcut) { AppsSheet() }
             #if os(iOS)
             .sheet(isPresented: $model.showingSettings, onDismiss: model.presentPendingRemoteShortcut) { SettingsView() }
-            .fullScreenCover(item: $model.remoteControlMode) { mode in
-                switch mode {
-                case .eyesFree: JoystickScreen()
-                case .cursor: CursorScreen()
-                }
-            }
             .onOpenURL { model.handleRemoteShortcut($0) }
-            #else
-            .sheet(item: $model.remoteControlMode) { mode in
-                switch mode {
-                case .eyesFree: JoystickScreen()
-                case .cursor: CursorScreen()
-                }
-            }
             #endif
             .sheet(isPresented: pairingPresented) { PairingSheet() }
             .animation(.snappy, value: model.state)
@@ -95,10 +82,28 @@ struct RootView: View {
 
 /// The remote and the Watch page side by side; swipe (or use the switcher) to move between them.
 private struct Pager: View {
+    @Environment(AppModel.self) private var model
     @AppStorage("page") private var stored = 0
     @State private var page: Int? = 0
 
     var body: some View {
+        Group {
+            if model.remoteControlMode != .standard && (page ?? 0) == 0 {
+                RemoteScreen()
+            } else {
+                pages
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            PageSwitcher(page: Binding { page ?? 0 } set: { new in withAnimation(.snappy) { page = new } })
+        }
+        .background(Theme.background.ignoresSafeArea())
+        .onAppear { page = stored }
+        .onChange(of: page) { _, new in if let new { stored = new } }
+        .onChange(of: stored) { _, new in if page != new { page = new } }
+    }
+
+    private var pages: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 0) {
                 RemoteScreen()
@@ -114,13 +119,7 @@ private struct Pager: View {
         .scrollPosition(id: $page)
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.basedOnSize)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PageSwitcher(page: Binding { page ?? 0 } set: { new in withAnimation(.snappy) { page = new } })
-        }
-        .background(Theme.background.ignoresSafeArea())
-        .onAppear { page = stored }
-        .onChange(of: stored) { _, new in if page != new { page = new } }
-        .onChange(of: page) { _, new in if let new { stored = new } }
+
     }
 }
 

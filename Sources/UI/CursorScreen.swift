@@ -5,12 +5,13 @@ import UIKit
 
 struct CursorScreen: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
+    @AppStorage("page") private var page = 0
 
     var body: some View {
         CursorControls(tvName: model.current?.name ?? "No TV selected",
-                       enabled: model.supportsCursor && model.state == .connected,
-                       sessionID: model.currentID, close: { dismiss() }) { command, request in
+                       enabled: model.supportsCursor && model.remoteInputAvailable && page == 0,
+                       sessionID: model.currentID) { command, request in
+            guard page == 0 else { return false }
             let sent = await model.sendCursor(command, request: request)
             if case .move = command { return sent }
             if sent {
@@ -35,14 +36,12 @@ private struct CursorControls: View {
     let tvName: String
     let enabled: Bool
     let sessionID: String?
-    let close: () -> Void
 
-    init(tvName: String, enabled: Bool, sessionID: String?, close: @escaping () -> Void,
+    init(tvName: String, enabled: Bool, sessionID: String?,
          send: @escaping (CursorCommand, RemoteInputRequest) async -> Bool) {
         self.tvName = tvName
         self.enabled = enabled
         self.sessionID = sessionID
-        self.close = close
         _sender = State(initialValue: CursorSender(send: send,
             speed: UserDefaults.standard.object(forKey: "cursor.speed.v2") as? Double ?? CursorMotion.defaultSpeed,
             saveSpeed: { UserDefaults.standard.set($0, forKey: "cursor.speed.v2") }))
@@ -50,7 +49,6 @@ private struct CursorControls: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            header
             if dynamicTypeSize.isAccessibilitySize {
                 // Keep scrollable settings outside the pointer's gesture surface.
                 controlSurface
@@ -67,7 +65,7 @@ private struct CursorControls: View {
             }
         }
         .foregroundStyle(Theme.label)
-        .padding(20)
+        .padding(.bottom, 12)
         .frame(maxWidth: 600, maxHeight: .infinity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.ignoresSafeArea())
@@ -75,9 +73,6 @@ private struct CursorControls: View {
         .onChange(of: sessionID) { _, _ in sender.stop() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { sender.stop() } }
         .onDisappear { sender.stop() }
-        #if os(macOS)
-        .frame(minWidth: 380, minHeight: 640)
-        #endif
     }
 
     private var instructions: some View {
@@ -130,52 +125,25 @@ private struct CursorControls: View {
             VStack(spacing: 12) {
                 action("Back", symbol: "arrow.uturn.backward", command: .back)
                 action("Click", symbol: "cursorarrow.click", command: .click)
+                action("Home", symbol: "house", command: .home)
             }
         } else {
             HStack(spacing: 12) {
                 action("Back", symbol: "arrow.uturn.backward", command: .back)
                 action("Click", symbol: "cursorarrow.click", command: .click)
+                action("Home", symbol: "house", command: .home)
             }
         }
     }
 
     private var status: String {
-        if !enabled { return "Close cursor mode to choose or reconnect to a TV." }
-        if sender.unavailable { return "Cursor not ready. Try again, or close to reconnect." }
+        if !enabled { return "Choose or reconnect to your TV above." }
+        if sender.unavailable { return "Cursor not ready. Try again, or reconnect above." }
         #if os(iOS)
         return "Scroll with two fingers or the side strip"
         #else
         return "Drag the side strip to scroll"
         #endif
-    }
-
-    private var header: some View {
-        HStack(spacing: dynamicTypeSize.isAccessibilitySize ? 4 : 14) {
-            Button { sender.stop(); Haptics.tap(); close() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 44 : 48,
-                           height: dynamicTypeSize.isAccessibilitySize ? 44 : 48)
-                    .background(Circle().fill(Theme.keyTop))
-            }
-            .buttonStyle(.plain).accessibilityLabel("Close cursor mode")
-            VStack(alignment: .leading, spacing: 3) {
-                Text("LG Cursor")
-                    .font(.system(dynamicTypeSize.isAccessibilitySize ? .headline : .title2, design: .rounded).bold())
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text(tvName).font(.caption).foregroundStyle(Theme.secondary).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-            Button { press(.home) } label: {
-                Image(systemName: "house")
-                    .font(.system(size: 19, weight: .semibold))
-                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 44 : 48,
-                           height: dynamicTypeSize.isAccessibilitySize ? 44 : 48)
-                    .background(Circle().fill(Theme.keyTop))
-            }
-            .buttonStyle(.plain).disabled(!enabled).accessibilityLabel("Home")
-        }
     }
 
     private var touchpad: some View {
@@ -459,6 +427,6 @@ private struct MacCursorTouchpad: View {
 #endif
 
 #Preview("LG cursor") {
-    CursorControls(tvName: "Living Room LG", enabled: true, sessionID: "preview", close: {}) { _, _ in true }
+    CursorControls(tvName: "Living Room LG", enabled: true, sessionID: "preview") { _, _ in true }
         .frame(width: 390, height: 844)
 }
