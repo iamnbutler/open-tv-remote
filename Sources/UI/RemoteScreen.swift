@@ -105,7 +105,7 @@ struct RemoteScreen: View {
 
     /// Hardware keyboard control (Mac, or iPad with a keyboard).
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        guard model.remoteInputAvailable else { return .ignored }
+        guard model.keyboardInputAvailable else { return .ignored }
         if mode == .keyboard, let result = typeKey(press) { return result }
         let key: RemoteKey? = switch press.key {
         case .upArrow: .up
