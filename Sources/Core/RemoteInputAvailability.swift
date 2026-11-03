@@ -1,4 +1,4 @@
-/// Deliberate keyboard commands may use the driver's reconnect path. Continuous
+/// Deliberate keyboard and button commands may use the driver's reconnect path. Continuous
 /// gestures require a live connection so stale movement cannot initiate recovery.
 struct RemoteInputAvailability {
     var state: ConnectionState
@@ -7,11 +7,11 @@ struct RemoteInputAvailability {
     var showingApps = false
     var showingSettings = false
 
-    var allowsKeyboardShortcuts: Bool {
+    var allowsCommands: Bool {
         !showingDevices && !showingKeyboard && !showingApps && !showingSettings
     }
 
     var allowsGestures: Bool {
-        state == .connected && allowsKeyboardShortcuts
+        state == .connected && allowsCommands
     }
 }
