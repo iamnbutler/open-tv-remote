@@ -88,7 +88,7 @@ private struct Pager: View {
 
     var body: some View {
         Group {
-            if model.remoteControlMode != .standard && (page ?? 0) == 0 {
+            if model.remoteControlMode.isGestureMode && (page ?? 0) == 0 {
                 RemoteScreen()
             } else {
                 pages

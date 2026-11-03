@@ -22,6 +22,8 @@ final class AppModel: TVDriverDelegate {
         state == .connected && !showingDevices && !showingKeyboard && !showingApps && !showingSettings
     }
 
+    var availableRemoteModes: [RemoteControlMode] { RemoteControlMode.allCases }
+
     func selectRemoteMode(_ mode: RemoteControlMode) {
         remoteControlMode = mode
         #if DEBUG
@@ -66,6 +68,8 @@ final class AppModel: TVDriverDelegate {
             self.driver = driver
             state = .connected
             if UserDefaults.standard.bool(forKey: "demoEyesFree") { remoteControlMode = .eyesFree }
+            else if let raw = UserDefaults.standard.string(forKey: "padMode"),
+                    let mode = RemoteControlMode(rawValue: raw) { remoteControlMode = mode }
             switch DemoMode.sheet {
             case "apps": showingApps = true
             case "devices": showingDevices = true

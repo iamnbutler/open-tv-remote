@@ -1,14 +1,26 @@
 import Foundation
 
 enum RemoteControlMode: String, CaseIterable, Identifiable {
-    case standard, eyesFree
+    case standard, keyboard, keypad, eyesFree
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .standard: "Standard"
+        case .standard: "Directional pad"
+        case .keyboard: "Keyboard"
+        case .keypad: "Number pad"
         case .eyesFree: "Eyes-free"
         }
     }
+    var symbol: String {
+        switch self {
+        case .standard: "dpad.fill"
+        case .keyboard: "keyboard.fill"
+        case .keypad: "circle.grid.3x3.fill"
+        case .eyesFree: "l.joystick.tilt.up.fill"
+        }
+    }
+    var isGestureMode: Bool { self == .eyesFree }
+
 }
 
 /// Only a view preference is saved. Touches, held directions and pending commands are never restored.
@@ -49,10 +61,16 @@ struct RemoteModePreferences {
 
     /// The old beta preference applied to its selected TV, not every subsequently selected TV.
     func migrateLegacy(for deviceID: String?) {
-        guard let deviceID, let old = defaults.object(forKey: "remoteView.eyesFree.v1") as? Bool else { return }
+        guard let deviceID, !defaults.bool(forKey: "remoteView.legacyMigrated.v1") else { return }
         if defaults.dictionary(forKey: Self.key)?[deviceID] == nil {
-            save(old ? .eyesFree : .standard, for: deviceID)
+            if defaults.bool(forKey: "remoteView.eyesFree.v1") {
+                save(.eyesFree, for: deviceID)
+            } else if let raw = defaults.string(forKey: "padMode"),
+                      let mode = RemoteControlMode(rawValue: raw), !mode.isGestureMode {
+                save(mode, for: deviceID)
+            }
         }
+        defaults.set(true, forKey: "remoteView.legacyMigrated.v1")
         defaults.removeObject(forKey: "remoteView.eyesFree.v1")
     }
 }
