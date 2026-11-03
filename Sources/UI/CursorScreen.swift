@@ -56,22 +56,25 @@ private struct CursorControls: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        RemoteModeLayout {
             RemoteNavigationRow(selection: $mode, modes: modes, enabled: enabled,
                                 back: { press(.back) }, home: { press(.home) })
-            if dynamicTypeSize.isAccessibilitySize {
-                // Keep scrollable settings outside the pointer's gesture surface.
-                controlSurface
-                ScrollView {
-                    VStack(spacing: 16) { instructions; preferences; actions }
-                        .frame(maxWidth: .infinity)
+        } controls: {
+            VStack(spacing: 16) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    // Keep scrollable settings outside the pointer's gesture surface.
+                    controlSurface
+                    ScrollView {
+                        VStack(spacing: 16) { instructions; preferences; actions }
+                            .frame(maxWidth: .infinity)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                } else {
+                    instructions
+                    controlSurface
+                    preferences
+                    actions
                 }
-                .scrollBounceBehavior(.basedOnSize)
-            } else {
-                instructions
-                controlSurface
-                preferences
-                actions
             }
         }
         .foregroundStyle(Theme.label)

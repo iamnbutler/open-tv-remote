@@ -78,3 +78,22 @@ private struct RemoteModePicker: View {
         .accessibilityIdentifier("remoteModePicker")
     }
 }
+
+/// The navigation row keeps one position while only the input area changes or scrolls.
+struct RemoteModeLayout<Navigation: View, Controls: View>: View {
+    private let navigation: Navigation
+    private let controls: Controls
+
+    init(@ViewBuilder navigation: () -> Navigation, @ViewBuilder controls: () -> Controls) {
+        self.navigation = navigation()
+        self.controls = controls()
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            navigation
+            controls
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
