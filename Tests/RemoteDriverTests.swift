@@ -216,6 +216,165 @@ struct RemoteDriverTests {
         control.onText?("{\"id\":\"\(id)\",\"payload\":{\"socketPath\":\"ws://192.0.2.20/pointer\"}}")
     }
 
+    @Test func lgCursorUsesPointerPacketsRatherThanDirectionalKeys() async {
+        let (driver, _, pointer) = connectLG()
+        #expect(driver.supportsCursor)
+        #expect(await driver.sendCursor(.move(dx: 12.5, dy: -3), request: RemoteInputRequest()))
+        #expect(await driver.sendCursor(.scroll(dx: 0, dy: 1), request: RemoteInputRequest()))
+        #expect(await driver.sendCursor(.click, request: RemoteInputRequest()))
+        #expect(pointer.sent == ["type:move\ndx:12.500\ndy:-3.000\ndown:0\n\n",
+                                 "type:scroll\ndx:0.000\ndy:1.000\n\n", "type:click\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func lgCursorRejectsOversizedWireMovesInsteadOfSendingThem() async {
+        let (driver, _, pointer) = connectLG()
+        #expect(!(await driver.sendCursor(.move(dx: 500, dy: 0), request: RemoteInputRequest())))
+        #expect(pointer.sent.isEmpty)
+        #expect(await driver.sendCursor(.move(dx: 96, dy: 0), request: RemoteInputRequest()))
+        #expect(pointer.sent == ["type:move\ndx:96.000\ndy:0.000\ndown:0\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func lgScrollJitterNeverSendsZeroWheelPacketsOrEarnsFeedback() async {
+        let (driver, _, pointer) = connectLG()
+        var feedback: [RemoteInputRequest.Feedback] = []
+        let sender = CursorSender(send: { command, request in
+            let sent = await driver.sendCursor(command, request: request)
+            if sent { feedback.append(request.feedback) }
+            return sent
+        })
+        for rawDelta in [0.001, -0.001, 4.5, 4.5, 9.0] {
+            guard case let .scroll(dx, dy)? = CursorMotion.scroll(dx: 0, dy: rawDelta, reversed: false) else {
+                Issue.record("Expected nonzero raw scroll input"); continue
+            }
+            sender.scroll(dx: dx, dy: dy)
+        }
+        await waitUntil { sender.scrollActivity == 1 }
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(pointer.sent == ["type:scroll\ndx:0.000\ndy:-1.000\n\n"])
+        #expect(feedback == [.firm])
+        #expect(sender.scrollActivity == 1)
+        sender.stop(); driver.disconnect()
+    }
+
+    @Test func lgCursorRejectsInvalidAndCancelledInput() async {
+        let (driver, _, pointer) = connectLG()
+        let cancelled = RemoteInputRequest()
+        cancelled.cancel()
+        #expect(!(await driver.sendCursor(.click, request: cancelled)))
+        #expect(!(await driver.sendCursor(.move(dx: .nan, dy: 1), request: RemoteInputRequest())))
+        #expect(!(await driver.sendCursor(.scroll(dx: 0, dy: .infinity), request: RemoteInputRequest())))
+        #expect(pointer.sent.isEmpty)
+        driver.disconnect()
+    }
+
+    @Test func lgCursorRecoveryDropsTheDragAndPreservesCredentials() async {
+        let (driver, control, pointer) = connectLG()
+        pointer.peerClosed()
+        #expect(!(await driver.sendCursor(.move(dx: 50, dy: 0), request: RemoteInputRequest())))
+        respondToPointerRequest(control)
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement !== pointer)
+        #expect(replacement.sent.isEmpty)
+        #expect(driver.device.token == "test")
+        #expect(await driver.sendCursor(.move(dx: 3, dy: 2), request: RemoteInputRequest()))
+        #expect(replacement.sent == ["type:move\ndx:3.000\ndy:2.000\ndown:0\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func lgCursorRetriesAfterALostPointerReplyAndIgnoresTheLateReply() async {
+        let (driver, control, pointer) = connectLG()
+        pointer.peerClosed()
+        #expect(!(await driver.sendCursor(.move(dx: 1, dy: 0), request: RemoteInputRequest())))
+        let expiredID = JSON.parse(control.sent.last!)!["id"] as! String
+        #expect(!(await driver.sendCursor(.click, request: RemoteInputRequest())))
+        #expect(driver.state == .connected && driver.device.token == "test")
+        #expect(!(await driver.sendCursor(.move(dx: 2, dy: 0), request: RemoteInputRequest())))
+        let freshRequest = control.sent.last!
+        #expect((JSON.parse(freshRequest)!["id"] as! String) != expiredID)
+        let socketCount = LocalWebSocket.instances.count
+        control.onText?("{\"id\":\"\(expiredID)\",\"payload\":{\"socketPath\":\"ws://192.0.2.20/stale\"}}")
+        #expect(LocalWebSocket.instances.count == socketCount)
+        respondToPointerRequest(control)
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement.sent.isEmpty)
+        #expect(await driver.sendCursor(.move(dx: 3, dy: 0), request: RemoteInputRequest()))
+        #expect(replacement.sent == ["type:move\ndx:3.000\ndy:0.000\ndown:0\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func lgCursorReplacesAPointerWhoseHandshakeTimedOut() async {
+        LocalWebSocket.delayedOpenPaths = ["/pointer"]
+        defer { LocalWebSocket.delayedOpenPaths = [] }
+        let (driver, control, expired) = connectLG()
+        #expect(!(await driver.sendCursor(.click, request: RemoteInputRequest())))
+        #expect(driver.state == .connected && driver.device.token == "test")
+        LocalWebSocket.delayedOpenPaths = []
+        #expect(!(await driver.sendCursor(.scroll(dx: 0, dy: 1), request: RemoteInputRequest())))
+        respondToPointerRequest(control)
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement !== expired && replacement.sent.isEmpty)
+        expired.completeHandshake()
+        expired.peerClosed()
+        #expect(await driver.sendCursor(.click, request: RemoteInputRequest()))
+        #expect(replacement.sent == ["type:click\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func freshMotionCanRetryAnExpiredAcquisitionWithoutAButtonPress() async {
+        let (driver, control, pointer) = connectLG()
+        pointer.peerClosed()
+        #expect(!(await driver.sendCursor(.move(dx: 1, dy: 0), request: RemoteInputRequest())))
+        let expiredRequest = control.sent.last!
+        try? await Task.sleep(for: .milliseconds(4050))
+        #expect(!(await driver.sendCursor(.move(dx: 2, dy: 0), request: RemoteInputRequest())))
+        #expect(control.sent.last != expiredRequest)
+        respondToPointerRequest(control)
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement.sent.isEmpty)
+        #expect(await driver.sendCursor(.move(dx: 3, dy: 0), request: RemoteInputRequest()))
+        #expect(replacement.sent.count == 1)
+        driver.disconnect()
+    }
+
+    @Test func lgCursorSendFailureDropsOnlyThePointerAndRecoversOnNewInput() async {
+        let (driver, control, pointer) = connectLG()
+        pointer.sendSucceeds = false
+        #expect(!(await driver.sendCursor(.click, request: RemoteInputRequest())))
+        #expect(driver.state == .connected)
+        #expect(driver.device.token == "test")
+        #expect(!(await driver.sendCursor(.move(dx: 50, dy: 0), request: RemoteInputRequest())))
+        respondToPointerRequest(control)
+        let replacement = LocalWebSocket.instances.last!
+        #expect(replacement !== pointer)
+        #expect(replacement.sent.isEmpty)
+        #expect(await driver.sendCursor(.click, request: RemoteInputRequest()))
+        #expect(replacement.sent == ["type:click\n\n"])
+        driver.disconnect()
+    }
+
+    @Test func lgCursorDoesNotPairOrReconnectWhenDisconnected() async {
+        LocalWebSocket.instances = []
+        let driver = LGDriver(device: TVDevice(name: "Test LG", brand: .lg, host: "192.0.2.20", token: "test"))
+        #expect(!(await driver.sendCursor(.click, request: RemoteInputRequest())))
+        #expect(LocalWebSocket.instances.isEmpty)
+    }
+
+    @Test func lgCursorWaitingForHandshakeIsCancelledByAChangedSession() async {
+        LocalWebSocket.delayedOpenPaths = ["/pointer"]
+        defer { LocalWebSocket.delayedOpenPaths = [] }
+        let (driver, _, pointer) = connectLG()
+        let request = RemoteInputRequest()
+        let click = Task { await driver.sendCursor(.click, request: request) }
+        try? await Task.sleep(for: .milliseconds(30))
+        request.cancel()
+        driver.disconnect()
+        pointer.completeHandshake()
+        #expect(!(await click.value))
+        #expect(pointer.sent.isEmpty)
+    }
+
     @Test func deliberateCommandsReconnectAnIdleLGWithoutPairing() {
         for (key, name) in [(RemoteKey.up, "UP"), (.back, "BACK"), (.home, "HOME")] {
             let (driver, control, _) = connectLG()

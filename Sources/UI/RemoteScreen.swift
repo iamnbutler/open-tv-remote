@@ -18,6 +18,7 @@ struct RemoteScreen: View {
             switch model.remoteControlMode {
             case .standard, .keyboard, .keypad: standardMode
             case .eyesFree: JoystickScreen()
+            case .cursor: CursorScreen()
             }
         }
         .padding(.horizontal, 20)

@@ -49,6 +49,17 @@ struct RemoteModeTests {
         }
     }
 
+    @Test func cursorIsRememberedForLGAndUnavailableModesStaySafe() {
+        withPreferences { modes, _ in
+            modes.save(.cursor, for: "lg")
+            modes.save(.eyesFree, for: "roku")
+            #expect(modes.mode(for: "lg") == .cursor)
+            #expect(modes.mode(for: "lg", available: [.standard, .eyesFree]) == .standard)
+            #expect(modes.mode(for: "lg") == .cursor)
+            #expect(modes.mode(for: "roku") == .eyesFree)
+        }
+    }
+
     @Test func forgettingOneTVPreservesTheOthers() {
         withPreferences { modes, _ in
             modes.save(.eyesFree, for: "a")

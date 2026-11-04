@@ -7,6 +7,7 @@ final class AppModel: TVDriverDelegate {
     private(set) var devices: [TVDevice] = DeviceStore.load()
     private(set) var currentID: String? = DeviceStore.currentID
     private(set) var state: ConnectionState = .idle
+    private(set) var supportsCursor = false
     private(set) var installedApps: [TVApp]?
     /// True while we search the network for a saved TV that stopped answering at its old address.
     private(set) var isRelocating = false
@@ -32,9 +33,13 @@ final class AppModel: TVDriverDelegate {
                                 showingSettings: showingSettings)
     }
 
-    var availableRemoteModes: [RemoteControlMode] { RemoteControlMode.allCases }
+    var availableRemoteModes: [RemoteControlMode] {
+        supportsCursor ? [.standard, .keyboard, .keypad, .eyesFree, .cursor]
+                       : [.standard, .keyboard, .keypad, .eyesFree]
+    }
 
     func selectRemoteMode(_ mode: RemoteControlMode) {
+        guard availableRemoteModes.contains(mode) else { return }
         remoteControlMode = mode
         #if DEBUG
         if DemoMode.isEnabled { return }
@@ -42,10 +47,29 @@ final class AppModel: TVDriverDelegate {
         remoteModes.save(mode, for: currentID)
     }
 
+    #if os(iOS)
+    let remoteActivity = AppModel.makeRemoteActivityController()
+    private var pendingRemoteShortcut: URL?
+    @ObservationIgnored private var isForeground = false
+
+    private static func makeRemoteActivityController() -> RemoteActivityController {
+        #if DEBUG
+        if DemoMode.isEnabled {
+            return RemoteActivityController(system: ActivityKitRemoteActivitySystem(allowsSystemAccess: false),
+                                            load: { nil }, save: { _ in },
+                                            loadOptions: { RemoteActivityOptions(automatic: false) }, saveOptions: { _ in })
+        }
+        #endif
+        return RemoteActivityController(system: ActivityKitRemoteActivitySystem())
+    }
+    #endif
+
     let discovery = Discovery()
     let jellyfin = JellyfinStore()
 
-    @ObservationIgnored private var driver: TVDriver?
+    @ObservationIgnored private var driver: TVDriver? {
+        didSet { supportsCursor = driver?.supportsCursor == true }
+    }
     @ObservationIgnored private var relocateTask: Task<Void, Never>?
     @ObservationIgnored private var relocationAttempted = false
 
@@ -59,6 +83,7 @@ final class AppModel: TVDriverDelegate {
             let driver = DemoDriver(device: DemoMode.devices[0])
             driver.delegate = self
             self.driver = driver
+            supportsCursor = driver.supportsCursor
             state = .connected
             if UserDefaults.standard.bool(forKey: "demoEyesFree") { remoteControlMode = .eyesFree }
             else if let raw = UserDefaults.standard.string(forKey: "padMode"),
@@ -72,6 +97,13 @@ final class AppModel: TVDriverDelegate {
             }
             return
         }
+        #endif
+        #if os(iOS)
+        NotificationCenter.default.addObserver(forName: RemoteActivityPersistence.actionNotification, object: nil, queue: .main) { [weak self] note in
+            guard let event = note.object as? RemoteActivityActionEvent else { return }
+            MainActor.assumeIsolated { self?.handleRemoteActivityAction(event) }
+        }
+        remoteActivity.reconcile(selectedID: currentID)
         #endif
         NotificationCenter.default.addObserver(forName: CloudSettings.didChange, object: nil, queue: .main) { [weak self] note in
             let keys = note.userInfo?["keys"] as? [String] ?? []
@@ -110,6 +142,9 @@ final class AppModel: TVDriverDelegate {
     // MARK: Devices
 
     func select(_ device: TVDevice) {
+        #if os(iOS)
+        remoteActivity.resume(device.id)
+        #endif
         if !devices.contains(where: { $0.id == device.id }) {
             devices.append(device)
             DeviceStore.save(devices)
@@ -126,6 +161,9 @@ final class AppModel: TVDriverDelegate {
             driver = nil
             currentID = nil
             remoteControlMode = .standard
+            #if os(iOS)
+            remoteActivity.selectionChanged(to: nil)
+            #endif
             DeviceStore.currentID = nil
             state = .idle
             installedApps = nil
@@ -139,6 +177,9 @@ final class AppModel: TVDriverDelegate {
         isRelocating = false
         relocationAttempted = false
         currentID = device.id
+        #if os(iOS)
+        remoteActivity.selectionChanged(to: device.id)
+        #endif
         DeviceStore.currentID = device.id
         installedApps = nil
         let driver = Self.makeDriver(device)
@@ -146,8 +187,15 @@ final class AppModel: TVDriverDelegate {
         self.driver = driver
         state = driver.state
         remoteModes.migrateLegacy(for: device.id)
-        remoteControlMode = remoteModes.mode(for: device.id)
+        remoteControlMode = remoteModes.mode(for: device.id, available: availableRemoteModes)
+        #if os(iOS)
+        if isForeground && !isConnectionPaused {
+            driver.connect()
+            remoteActivity.ensureAutomatic(current)
+        }
+        #else
         driver.connect()
+        #endif
     }
 
     private static func makeDriver(_ device: TVDevice) -> TVDriver {
@@ -161,24 +209,102 @@ final class AppModel: TVDriverDelegate {
 
     // MARK: Connection
 
-    func reconnect() {
+    var isConnectionPaused: Bool {
+        #if os(iOS)
+        return currentID != nil && remoteActivity.options.disconnectedDeviceID == currentID
+        #else
+        return false
+        #endif
+    }
+
+    func reconnect(explicit: Bool = true) {
         guard let driver else { return }
+        #if os(iOS)
+        if explicit, let currentID { remoteActivity.resume(currentID) }
+        guard !isConnectionPaused else { return }
+        #endif
         switch state {
         case .connected, .connecting, .pairing: return
         default:
             relocationAttempted = false
             driver.connect()
         }
+        #if os(iOS)
+        if isForeground { remoteActivity.ensureAutomatic(current) }
+        #endif
     }
 
     /// iOS kills sockets in the background without telling us, so the first press after
     /// returning would go into a dead connection. Drop it ourselves and reconnect on return.
     func sceneDidEnterBackground() {
+        #if os(iOS)
+        isForeground = false
+        remoteActivity.sceneDidEnterBackground()
+        #endif
         if case .pairing = state { return }
         driver?.disconnect()
     }
 
-    func sceneDidBecomeActive() { reconnect() }
+    func sceneDidBecomeActive() {
+        #if os(iOS)
+        isForeground = true
+        remoteActivity.reconcile(selectedID: currentID)
+        remoteActivity.ensureAutomatic(current)
+        #endif
+        reconnect(explicit: false)
+    }
+
+    #if os(iOS)
+    private func handleRemoteActivityAction(_ event: RemoteActivityActionEvent) {
+        guard event.deviceID == currentID else { return }
+        remoteActivity.reloadOptions()
+        if event.action == .disconnect { disconnectRemoteSession() }
+        else { remoteActivity.dismiss() }
+    }
+
+    func disconnectRemoteSession() {
+        guard let currentID else { return }
+        remoteActivity.pauseConnection(currentID)
+        relocateTask?.cancel()
+        relocateTask = nil
+        isRelocating = false
+        discovery.stop()
+        driver?.disconnect()
+        state = .idle
+    }
+
+    func handleRemoteShortcut(_ url: URL) {
+        guard remoteActivity.accepts(url, selectedID: currentID) else { return }
+        // Pairing is an explicit flow and must not be hidden by an external link.
+        if case .pairing = state { return }
+        pendingRemoteShortcut = nil
+        // The main Island tap resumes the existing page, mode and any open sheet.
+        guard RemoteActivityLink.opensEyesFree(url) else {
+            remoteActivity.noteInteraction()
+            return
+        }
+        pendingRemoteShortcut = url
+        let dismissing = showingDevices || showingKeyboard || showingApps || showingSettings
+        showingDevices = false
+        showingKeyboard = false
+        showingApps = false
+        showingSettings = false
+        if !dismissing { presentPendingRemoteShortcut() }
+    }
+    #endif
+
+    func presentPendingRemoteShortcut() {
+        #if os(iOS)
+        guard let url = pendingRemoteShortcut,
+              !showingDevices, !showingKeyboard, !showingApps, !showingSettings else { return }
+        pendingRemoteShortcut = nil
+        guard remoteActivity.accepts(url, selectedID: currentID) else { return }
+        if case .pairing = state { return }
+        remoteActivity.noteInteraction()
+        UserDefaults.standard.set(0, forKey: "page")
+        selectRemoteMode(.eyesFree)
+        #endif
+    }
 
     /// Routers hand out new addresses. If a saved TV stops answering, look for one with the same
     /// brand and name elsewhere on the network and move it there. Pairing survives the move.
@@ -221,7 +347,12 @@ final class AppModel: TVDriverDelegate {
     }
 
     /// Explicit user action — this is the only path that puts something on the TV screen.
-    func startPairing() { driver?.pair() }
+    func startPairing() {
+        #if os(iOS)
+        if let currentID { remoteActivity.resume(currentID) }
+        #endif
+        driver?.pair()
+    }
 
     func submitPairingCode(_ code: String) { driver?.submitPairingCode(code) }
 
@@ -237,10 +368,19 @@ final class AppModel: TVDriverDelegate {
     private(set) var demoLastInput = "None"
     #endif
 
-    func press(_ key: RemoteKey) { driver?.send(key) }
+    func press(_ key: RemoteKey) {
+        if isConnectionPaused { reconnect() }
+        #if os(iOS)
+        remoteActivity.noteInteraction()
+        #endif
+        driver?.send(key)
+    }
 
     func pressInteractively(_ key: RemoteKey, request: RemoteInputRequest) async {
         guard state == .connected, !request.isCancelled, !Task.isCancelled else { return }
+        #if os(iOS)
+        remoteActivity.noteInteraction()
+        #endif
         #if DEBUG
         if DemoMode.isEnabled {
             demoInputCount += 1
@@ -252,7 +392,25 @@ final class AppModel: TVDriverDelegate {
 
     func supports(_ key: RemoteKey) -> Bool { driver?.supports(key) ?? true }
 
-    func sendText(_ text: String) { driver?.sendText(text) }
+    func sendCursor(_ command: CursorCommand, request: RemoteInputRequest) async -> Bool {
+        guard remoteInputAvailable, !isConnectionPaused, !request.isCancelled, !Task.isCancelled,
+              let driver, driver.supportsCursor, remoteControlMode == .cursor else { return false }
+        let sent = await driver.sendCursor(command, request: request)
+        guard self.driver === driver, !request.isCancelled, !Task.isCancelled,
+              remoteInputAvailable, remoteControlMode == .cursor else { return false }
+        #if os(iOS)
+        if sent { remoteActivity.noteInteraction() }
+        #endif
+        return sent
+    }
+
+    func sendText(_ text: String) {
+        if isConnectionPaused { reconnect() }
+        #if os(iOS)
+        remoteActivity.noteInteraction()
+        #endif
+        driver?.sendText(text)
+    }
 
     // MARK: Keyboard pad
 
@@ -293,6 +451,10 @@ final class AppModel: TVDriverDelegate {
     @discardableResult
     func launch(_ app: TVApp) -> Bool {
         guard let driver, current?.hasCredentials == true else { return false }
+        if isConnectionPaused { reconnect() }
+        #if os(iOS)
+        remoteActivity.noteInteraction()
+        #endif
         driver.launch(app)
         return true
     }
@@ -347,6 +509,7 @@ final class AppModel: TVDriverDelegate {
 
     func driver(_ driver: TVDriver, didChangeState state: ConnectionState) {
         guard driver === self.driver else { return }
+        guard !isConnectionPaused else { self.state = .idle; return }
         self.state = state
         if case .failed = state, let current {
             relocate(current)

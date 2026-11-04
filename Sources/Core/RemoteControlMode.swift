@@ -1,7 +1,7 @@
 import Foundation
 
 enum RemoteControlMode: String, CaseIterable, Identifiable {
-    case standard, keyboard, keypad, eyesFree
+    case standard, keyboard, keypad, eyesFree, cursor
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -9,6 +9,7 @@ enum RemoteControlMode: String, CaseIterable, Identifiable {
         case .keyboard: "Keyboard"
         case .keypad: "Number pad"
         case .eyesFree: "Eyes-free"
+        case .cursor: "Cursor"
         }
     }
     var symbol: String {
@@ -17,9 +18,10 @@ enum RemoteControlMode: String, CaseIterable, Identifiable {
         case .keyboard: "keyboard.fill"
         case .keypad: "circle.grid.3x3.fill"
         case .eyesFree: "l.joystick.tilt.up.fill"
+        case .cursor: "cursorarrow"
         }
     }
-    var isGestureMode: Bool { self == .eyesFree }
+    var isGestureMode: Bool { self == .eyesFree || self == .cursor }
 
 }
 
