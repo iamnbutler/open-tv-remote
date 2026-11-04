@@ -24,18 +24,6 @@ struct RemoteActivityWidget: Widget {
             .widgetURL(RemoteActivityLink.url(for: context.attributes.sessionID))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    if let url = RemoteActivityLink.url(for: context.attributes.sessionID, eyesFree: true) {
-                        Link(destination: url) {
-                            Label("Open eyes-free", systemImage: "hand.draw")
-                                .font(.caption2.weight(.semibold)).foregroundStyle(.mint)
-                                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                                .frame(minHeight: 44).contentShape(Rectangle())
-                        }
-                        .padding(.leading, 6)
-                        .accessibilityLabel("Open eyes-free")
-                    }
-                }
                 // The full name belongs below the camera, where it can wrap.
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 12) {
